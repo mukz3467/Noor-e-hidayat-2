@@ -182,7 +182,15 @@ object QuranDataService {
         val localCorpus = runCatching {
             IslamicContentDatabase.get(context).getQuranAyahs(surahNumber)
         }.getOrDefault(emptyList())
-        if (localCorpus.size == expectedAyahCount && localCorpus.all { it.arabic.isNotBlank() }) {
+        if (
+            localCorpus.size == expectedAyahCount &&
+            localCorpus.all {
+                it.arabic.isNotBlank() &&
+                    it.englishTranslation.isNotBlank() &&
+                    it.urduTranslation.isNotBlank() &&
+                    it.hindiTranslation.isNotBlank()
+            }
+        ) {
             memCache[surahNumber] = localCorpus
             return@withContext localCorpus
         }
@@ -260,11 +268,13 @@ object QuranDataService {
             uthmaniAyahs.any { it.isBlank() } ||
             englishAyahs.size != expectedAyahCount ||
             urduAyahs.size != expectedAyahCount ||
+            hindiAyahs.size != expectedAyahCount ||
             englishAyahs.any { it.isBlank() } ||
-            urduAyahs.any { it.isBlank() }
+            urduAyahs.any { it.isBlank() } ||
+            hindiAyahs.any { it.isBlank() }
         ) {
             throw IOException(
-                "Incomplete Quran response for Surah $surahNumber: expected $expectedAyahCount Arabic, English and Urdu ayahs; received Arabic=$count, English=${englishAyahs.size}, Urdu=${urduAyahs.size}."
+                "Incomplete Quran response for Surah $surahNumber: expected $expectedAyahCount Arabic, English, Urdu and Hindi ayahs; received Arabic=$count, English=${englishAyahs.size}, Urdu=${urduAyahs.size}, Hindi=${hindiAyahs.size}."
             )
         }
         val result = mutableListOf<Ayah>()
