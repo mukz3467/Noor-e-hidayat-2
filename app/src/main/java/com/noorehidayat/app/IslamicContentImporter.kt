@@ -5,7 +5,6 @@ import android.content.Context
 import android.database.sqlite.SQLiteDatabase
 import org.json.JSONArray
 import org.json.JSONObject
-import java.security.MessageDigest
 
 /**
  * Installs a reviewed JSON release bundle from assets/islamic-library/release.json.
@@ -48,7 +47,8 @@ internal object IslamicContentImporter {
         validateHadiths(collections, books, hadiths, hadithTranslations, editionById)
 
         val db = IslamicContentDatabase.get(context).writableDatabase
-        val result = db.runInTransaction<ImportResult> {
+        db.beginTransaction()
+        try {
             clearReleaseTables(db)
             insertEditions(db, editions)
             insertQuran(db, quran)
@@ -61,10 +61,13 @@ internal object IslamicContentImporter {
             insertHadithTranslations(db, hadithTranslations)
 
             val bukhari = hadiths.countObjects { it.optString("collectionId") == "sahih_al_bukhari" }
-            val muslim = hadiths.countObjects { it.optString("collectionId") == "sahih_muslim" }
-            ImportResult(quran.length(), translations.length(), tafsir.length(), bukhari, muslim)
+            val muslim = hadiths.countObjects { it.optString("collectionId") == "sahih_al_muslim" }
+            val result = ImportResult(quran.length(), translations.length(), tafsir.length(), bukhari, muslim)
+            db.setTransactionSuccessful()
+            return result
+        } finally {
+            db.endTransaction()
         }
-        return result
     }
 
     private fun validateEditions(editions: JSONArray): Map<String, JSONObject> {
@@ -325,9 +328,6 @@ internal object IslamicContentImporter {
 
     private fun JSONObject.required(key: String): String =
         optString(key).takeIf { it.isNotBlank() } ?: error("Required field '$key' is missing.")
-
-    private fun sha256(value: String): String =
-        MessageDigest.getInstance("SHA-256").digest(value.toByteArray()).joinToString("") { "%02x".format(it) }
 
     private const val RELEASE_ASSET = "islamic-library/release.json"
     private const val EXPECTED_AYAHS = 6236
