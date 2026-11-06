@@ -4,7 +4,7 @@ An Android Islamic companion app built with Kotlin and Jetpack Compose.
 
 ## Current app features
 
-- Quran reader with Arabic text and verse-level Urdu and English translations.
+- Quran reader with Arabic original text and verse-level English, Urdu and Hindi translations (four reading languages including Arabic).
 - Optional full-Quran offline cache: open **More → Download Quran for offline reading** while connected to the internet. Wait for all 114 Surahs to finish; then cached Surahs can be opened offline.
 - Quran tafseer screen using the published editions returned by AlQuranCloud.
 - Qibla direction based on the device's location; the app does not silently substitute a fixed city when location is unavailable.
@@ -23,7 +23,7 @@ An Android Islamic companion app built with Kotlin and Jetpack Compose.
 - Makkah live channel: [Saudi Quran TV](https://www.youtube.com/channel/UCos52azQNBgW63_9uDJoPDA/live).
 - Madinah live channel: [Saudi Sunnah TV](https://www.youtube.com/channel/UCROKYPep-UuODNwyipe6JMw/live).
 
-The Hadith library now bundles 7,360 non-empty Arabic narrations from Sahih Muslim for offline reading. The upstream export contains 7,563 numbered rows, including 203 empty placeholders which are omitted without renumbering. English, Urdu and Hindi translations for Sahih Muslim are not bundled because redistribution permission is not established; the app displays an unavailable state instead of machine-translating. Sahih al-Bukhari and the broader Quran/tafsir corpus are not yet complete offline datasets. The app does not currently bundle a preloaded Quran dataset; offline Quran reading becomes available after the user completes the in-app download. Word-by-word glosses are intentionally not populated until a complete, verified and properly licensed dataset is integrated. Unreferenced Asbab al-Nuzul summaries are not displayed as established reports.
+The Hadith library now bundles 7,360 non-empty Arabic narrations from Sahih Muslim for offline reading. The upstream export contains 7,563 numbered rows, including 203 empty placeholders which are omitted without renumbering. English, Urdu and Hindi translations for Sahih Muslim are not bundled because redistribution permission is not established; the app displays an unavailable state instead of machine-translating. Sahih al-Bukhari and the broader Quran/tafsir corpus are not yet complete offline datasets. The app does not currently bundle a preloaded Quran dataset; offline Quran reading becomes available after the user completes the in-app download. A Surah is accepted into the cache only when Arabic, English, Urdu and Hindi ayah counts are all complete. Word-by-word glosses are intentionally not populated until a complete, verified and properly licensed dataset is integrated. Unreferenced Asbab al-Nuzul summaries are not displayed as established reports.
 
 Prayer-time fallback calculations are approximate and should be checked against a trusted local mosque when the online calculation service is unavailable. Zakat metal prices are user-entered and are not live market quotes. The Hijri date can differ from local moon-sighting announcements.
 
