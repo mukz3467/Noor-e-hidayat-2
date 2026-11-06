@@ -366,7 +366,7 @@ internal class IslamicContentDatabase private constructor(context: Context) :
             ),
             muslimNarrations = scalarCount(
                 db,
-                "SELECT COUNT(*) FROM hadith_records WHERE collection_id = 'sahih_muslim' AND review_status = 'VERIFIED_FOR_RELEASE'"
+                "SELECT COUNT(*) FROM hadith_records WHERE collection_id = 'sahih_al_muslim' AND review_status = 'VERIFIED_FOR_RELEASE'"
             )
         )
     }
