@@ -4,6 +4,12 @@ import android.content.ClipData
 import android.content.ClipboardManager
 import android.content.Context
 import android.widget.Toast
+import org.json.JSONObject
+import java.net.HttpURLConnection
+import java.net.URL
+import java.util.Locale
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.withContext
 import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.*
@@ -26,6 +32,50 @@ import androidx.compose.ui.unit.sp
 
 private data class ZakatAsset(val id: Int, val kind: String, val amount: String = "", val rate: String = "")
 private data class ZakatDeduction(val id: Int, val kind: String, val amount: String = "")
+private data class LiveMetalRates(val goldGram: Double, val silverGram: Double, val updatedAt: String)
+
+private fun cachedMetalRates(context: Context, currencyCode: String): LiveMetalRates? {
+    val prefs = context.getSharedPreferences("zakat_metal_rates_v1", Context.MODE_PRIVATE)
+    val gold = prefs.getString("${currencyCode}_gold_gram", null)?.toDoubleOrNull() ?: return null
+    val silver = prefs.getString("${currencyCode}_silver_gram", null)?.toDoubleOrNull() ?: return null
+    val updated = prefs.getString("${currencyCode}_updated_at", "Previously saved rate") ?: "Previously saved rate"
+    return LiveMetalRates(gold, silver, updated)
+}
+
+private suspend fun fetchMetalRates(context: Context, currencyCode: String): LiveMetalRates = withContext(Dispatchers.IO) {
+    fun getJson(url: String): JSONObject {
+        val connection = (URL(url).openConnection() as HttpURLConnection).apply {
+            connectTimeout = 12000
+            readTimeout = 12000
+            requestMethod = "GET"
+            setRequestProperty("Accept", "application/json")
+        }
+        try {
+            if (connection.responseCode !in 200..299) error("Rate service returned HTTP ${connection.responseCode}")
+            return JSONObject(connection.inputStream.bufferedReader().use { it.readText() })
+        } finally {
+            connection.disconnect()
+        }
+    }
+
+    val gold = getJson("https://api.gold-api.com/price/XAU")
+    val silver = getJson("https://api.gold-api.com/price/XAG")
+    val fx = getJson("https://open.er-api.com/v6/latest/USD")
+    val fxRate = if (currencyCode == "USD") 1.0 else fx.getJSONObject("rates").getDouble(currencyCode)
+    val goldUsdPerOunce = gold.getDouble("price")
+    val silverUsdPerOunce = silver.getDouble("price")
+    val goldPerGram = goldUsdPerOunce / 31.1034768 * fxRate
+    val silverPerGram = silverUsdPerOunce / 31.1034768 * fxRate
+    require(goldPerGram > 0 && silverPerGram > 0 && fxRate > 0) { "Invalid market rate response" }
+    val updatedAt = listOf(gold.optString("updatedAt"), silver.optString("updatedAt"))
+        .filter { it.isNotBlank() }.minOrNull() ?: fx.optString("time_last_update_utc", "Recently updated")
+    context.getSharedPreferences("zakat_metal_rates_v1", Context.MODE_PRIVATE).edit()
+        .putString("${currencyCode}_gold_gram", goldPerGram.toString())
+        .putString("${currencyCode}_silver_gram", silverPerGram.toString())
+        .putString("${currencyCode}_updated_at", updatedAt)
+        .apply()
+    LiveMetalRates(goldPerGram, silverPerGram, updatedAt)
+}
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -34,6 +84,7 @@ internal fun ZakatCalculatorScreen(appLanguage: AppLanguage = AppLanguage.ENGLIS
     val urdu = appLanguage == AppLanguage.URDU
     val kinds = listOf("Cash & bank balance" to "نقد رقم اور بینک بیلنس", "Gold" to "سونا", "Silver" to "چاندی", "Business stock / inventory" to "مالِ تجارت / کاروباری اسٹاک", "Shares & investments (zakatable value)" to "قابلِ زکوٰۃ شیئرز اور سرمایہ کاری", "Money lent / receivable" to "واپس ملنے والی دی گئی رقم", "Other zakatable savings" to "دیگر قابلِ زکوٰۃ بچت")
     val currencies = listOf("PKR (Rs)" to "Rs", "USD ($)" to "$", "SAR" to "SAR", "AED" to "AED", "GBP (£)" to "£", "EUR (€)" to "€", "INR (₹)" to "₹")
+    val currencyCodes = listOf("PKR", "USD", "SAR", "AED", "GBP", "EUR", "INR")
     var currencyIndex by remember { mutableIntStateOf(0) }
     var currencyExpanded by remember { mutableStateOf(false) }
     var assets by remember { mutableStateOf(emptyList<ZakatAsset>()) }
@@ -46,7 +97,59 @@ internal fun ZakatCalculatorScreen(appLanguage: AppLanguage = AppLanguage.ENGLIS
     var nisabType by remember { mutableStateOf("Silver") }
     var silverRate by remember { mutableStateOf("") }
     var goldRate by remember { mutableStateOf("") }
+    var liveRates by remember { mutableStateOf<LiveMetalRates?>(null) }
+    var ratesLoading by remember { mutableStateOf(false) }
+    var ratesError by remember { mutableStateOf(false) }
+    var refreshRates by remember { mutableIntStateOf(0) }
+    var lastAutoGoldRate by remember { mutableStateOf("") }
+    var lastAutoSilverRate by remember { mutableStateOf("") }
     val symbol = currencies[currencyIndex].second
+    val currencyCode = currencyCodes[currencyIndex]
+
+    LaunchedEffect(currencyCode, refreshRates) {
+        val cached = cachedMetalRates(context, currencyCode)
+        if (cached != null) {
+            liveRates = cached
+            val oldGold = lastAutoGoldRate
+            val oldSilver = lastAutoSilverRate
+            if (goldRate.isBlank() || goldRate == oldGold) goldRate = "%.4f".format(Locale.US, cached.goldGram)
+            if (silverRate.isBlank() || silverRate == oldSilver) silverRate = "%.4f".format(Locale.US, cached.silverGram)
+            lastAutoGoldRate = "%.4f".format(Locale.US, cached.goldGram)
+            lastAutoSilverRate = "%.4f".format(Locale.US, cached.silverGram)
+            assets = assets.map { asset ->
+                when (asset.kind) {
+                    "Gold" -> if (asset.rate.isBlank() || asset.rate == oldGold) asset.copy(rate = lastAutoGoldRate) else asset
+                    "Silver" -> if (asset.rate.isBlank() || asset.rate == oldSilver) asset.copy(rate = lastAutoSilverRate) else asset
+                    else -> asset
+                }
+            }
+        }
+        ratesLoading = true
+        ratesError = false
+        try {
+            val fresh = fetchMetalRates(context, currencyCode)
+            liveRates = fresh
+            val freshGold = "%.4f".format(Locale.US, fresh.goldGram)
+            val freshSilver = "%.4f".format(Locale.US, fresh.silverGram)
+            val oldGold = lastAutoGoldRate
+            val oldSilver = lastAutoSilverRate
+            if (goldRate.isBlank() || goldRate == oldGold) goldRate = freshGold
+            if (silverRate.isBlank() || silverRate == oldSilver) silverRate = freshSilver
+            assets = assets.map { asset ->
+                when (asset.kind) {
+                    "Gold" -> if (asset.rate.isBlank() || asset.rate == oldGold) asset.copy(rate = freshGold) else asset
+                    "Silver" -> if (asset.rate.isBlank() || asset.rate == oldSilver) asset.copy(rate = freshSilver) else asset
+                    else -> asset
+                }
+            }
+            lastAutoGoldRate = freshGold
+            lastAutoSilverRate = freshSilver
+        } catch (_: Exception) {
+            ratesError = true
+        } finally {
+            ratesLoading = false
+        }
+    }
     fun n(s: String) = s.replace(",", "").toDoubleOrNull()?.coerceAtLeast(0.0) ?: 0.0
     fun metal(kind: String) = kind == "Gold" || kind == "Silver"
     val assetTotal = assets.sumOf { if (metal(it.kind)) n(it.amount) * n(it.rate) else n(it.amount) }
@@ -98,7 +201,30 @@ internal fun ZakatCalculatorScreen(appLanguage: AppLanguage = AppLanguage.ENGLIS
             }
             item {
                 ZakatPanel(if (urdu) "2۔ اپنے اثاثے شامل کریں" else "2. Add your zakatable assets") {
-                    Text(if (urdu) "جس قسم کا مال موجود ہو اسے منتخب کرکے رقم درج کریں۔ سونے اور چاندی کے لیے وزن اور فی گرام قیمت درج کریں۔" else "Select the assets you own. For gold and silver, enter weight in grams and current price per gram.", color = Muted, fontSize = 11.sp)
+                    Text(if (urdu) "اپنے موجود اثاثے منتخب کریں۔ سونے اور چاندی کے تازہ فی گرام ریٹ خود آئیں گے؛ آپ مقامی ریٹ کے مطابق انہیں بدل بھی سکتے ہیں۔" else "Select only the assets you own. Live gold and silver prices per gram are filled in automatically; you can edit them to match a local dealer quote.", color = Muted, fontSize = 11.sp)
+                    Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                        Column(Modifier.weight(1f)) {
+                            Text(
+                                when {
+                                    ratesLoading -> if (urdu) "مارکیٹ ریٹ حاصل ہو رہے ہیں…" else "Fetching market rates…"
+                                    liveRates != null && !ratesError -> if (urdu) "ریٹ اپ ڈیٹ: ${liveRates?.updatedAt}" else "Rates updated: ${liveRates?.updatedAt}"
+                                    liveRates != null -> if (urdu) "آف لائن محفوظ شدہ ریٹ" else "Offline — showing saved rates"
+                                    else -> if (urdu) "ریٹ دستیاب نہیں؛ دستی درج کریں" else "Rates unavailable — enter manually"
+                                },
+                                color = if (ratesError) Gold else Muted, fontSize = 10.sp
+                            )
+                            liveRates?.let { rates ->
+                                Text(
+                                    if (urdu) "سونا: $symbol ${"%.2f".format(rates.goldGram)} / گرام   چاندی: $symbol ${"%.2f".format(rates.silverGram)} / گرام"
+                                    else "Gold: $symbol ${"%.2f".format(rates.goldGram)}/g  •  Silver: $symbol ${"%.2f".format(rates.silverGram)}/g",
+                                    color = Cream, fontSize = 10.sp
+                                )
+                            }
+                        }
+                        OutlinedButton(onClick = { refreshRates++ }, enabled = !ratesLoading, colors = ButtonDefaults.outlinedButtonColors(contentColor = Gold), border = BorderStroke(1.dp, Gold)) {
+                            Text(if (urdu) "تازہ کریں" else "Refresh", fontSize = 10.sp)
+                        }
+                    }
                     assets.forEach { asset ->
                         Card(Modifier.fillMaxWidth(), colors = CardDefaults.cardColors(containerColor = Deep), border = BorderStroke(1.dp, Border), shape = RoundedCornerShape(12.dp)) {
                             Column(Modifier.padding(10.dp), verticalArrangement = Arrangement.spacedBy(6.dp)) {
@@ -119,7 +245,7 @@ internal fun ZakatCalculatorScreen(appLanguage: AppLanguage = AppLanguage.ENGLIS
                     Box {
                         OutlinedButton(onClick = { addExpanded = true }, modifier = Modifier.fillMaxWidth(), colors = ButtonDefaults.outlinedButtonColors(contentColor = Gold), border = BorderStroke(1.dp, Gold)) { Icon(Icons.Default.Add, null); Spacer(Modifier.width(5.dp)); Text(if (urdu) "اثاثہ منتخب کریں" else "Add / select an asset") }
                         DropdownMenu(expanded = addExpanded, onDismissRequest = { addExpanded = false }) {
-                            kinds.forEach { kind -> DropdownMenuItem(text = { Text(if (urdu) kind.second else kind.first) }, onClick = { assets = assets + ZakatAsset(nextId++, kind.first); addExpanded = false }) }
+                            kinds.forEach { kind -> DropdownMenuItem(text = { Text(if (urdu) kind.second else kind.first) }, onClick = { assets = assets + ZakatAsset(nextId++, kind.first, rate = when (kind.first) { "Gold" -> lastAutoGoldRate; "Silver" -> lastAutoSilverRate; else -> "" }); addExpanded = false }) }
                         }
                     }
                 }
@@ -137,7 +263,7 @@ internal fun ZakatCalculatorScreen(appLanguage: AppLanguage = AppLanguage.ENGLIS
                         ZakatNumberField(if (urdu) "سونا فی گرام قیمت ($symbol)" else "Gold price per gram ($symbol)", goldRate) { goldRate = it }
                         Text(if (urdu) "نصاب: 87.48 گرام سونا" else "Reference: 87.48 g gold", color = Muted, fontSize = 10.sp)
                     }
-                    Text(if (urdu) "مقامی مارکیٹ ریٹ خود درج کریں؛ لائیو ریٹ دستیاب ہونے کا دعویٰ نہیں۔ نصاب کے انتخاب میں فقہی اختلاف ہوسکتا ہے۔" else "Enter the local market rate yourself; no live rate is claimed. Nisab practice can differ by school of jurisprudence.", color = Muted, fontSize = 10.sp)
+                    Text(if (urdu) "نصاب کے لیے بھی اوپر سے حاصل شدہ فی گرام ریٹ خود درج ہوگا۔ مقامی مارکیٹ یا سونے کی خالصیت کے فرق کے لیے قیمت درست کرلیں۔ نصاب کے انتخاب میں فقہی اختلاف ہوسکتا ہے۔" else "The live per-gram rates also fill the Nisab price. Adjust for local dealer prices or gold purity. Nisab practice can differ by school of jurisprudence.", color = Muted, fontSize = 10.sp)
                 }
             }
             item {
