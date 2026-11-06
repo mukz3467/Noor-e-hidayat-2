@@ -4,8 +4,12 @@ on:
   pull_request:
     branches: [main]
   push:
-    branches: [main, fix/islamic-data-accuracy]
+    branches: [main]
   workflow_dispatch:
+
+concurrency:
+  group: android-ci-${{ github.event.pull_request.number || github.ref }}
+  cancel-in-progress: true
 
 permissions:
   contents: read
