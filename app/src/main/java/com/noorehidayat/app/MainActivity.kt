@@ -3,6 +3,8 @@ package com.noorehidayat.app
 import android.content.ClipData
 import android.content.ClipboardManager
 import android.content.Context
+import android.content.Intent
+import android.net.Uri
 import android.os.Bundle
 import android.webkit.WebChromeClient
 import android.webkit.WebResourceRequest
@@ -1360,12 +1362,13 @@ private fun LiveHarameynScreen(
     selectedStream: LiveStream,
     onSelectStream: (LiveStream) -> Unit
 ) {
+    val context = LocalContext.current
     Column(
         Modifier
             .fillMaxSize()
             .background(Emerald)
     ) {
-        // Player Section (Embedded In-App Player with zero external links)
+        // Player section: in-app embed with a direct official-channel fallback.
         Box(
             modifier = Modifier
                 .fillMaxWidth()
@@ -1410,8 +1413,26 @@ private fun LiveHarameynScreen(
                     selectedStream.description,
                     color = Muted,
                     fontSize = 12.sp,
-                    modifier = Modifier.padding(top = 4.dp, bottom = 12.dp)
+                    modifier = Modifier.padding(top = 4.dp, bottom = 8.dp)
                 )
+                OutlinedButton(
+                    onClick = {
+                        val channelId = selectedStream.youtubeId.removePrefix("channel:")
+                        context.startActivity(
+                            Intent(
+                                Intent.ACTION_VIEW,
+                                Uri.parse("https://www.youtube.com/channel/$channelId/live")
+                            )
+                        )
+                    },
+                    colors = ButtonDefaults.outlinedButtonColors(contentColor = Gold),
+                    border = BorderStroke(1.dp, Border),
+                    shape = RoundedCornerShape(10.dp)
+                ) {
+                    Icon(Icons.Default.OpenInNew, contentDescription = null, modifier = Modifier.size(16.dp))
+                    Spacer(Modifier.width(6.dp))
+                    Text(if (appLanguage == AppLanguage.URDU) "یوٹیوب پر کھولیں" else "Open official channel on YouTube")
+                }
 
                 Text(
                     "OFFICIAL SAUDI BROADCAST CHANNELS",
