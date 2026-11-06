@@ -105,3 +105,24 @@ References:
 ### Release decision
 
 The current importer/database/UI work remains infrastructure only. No placeholder corpus, machine-translated religious text, scraped third-party translation, or guessed attribution may be used to satisfy a count requirement. The next data import may proceed only for an individually approved, version-pinned source whose exact text, coverage, numbering, license and required attribution have been checked. Where no verified text exists in a language, the app must show that language as unavailable rather than substitute English, Urdu, Hindi or Arabic silently.
+
+## Neutral Islamic editorial standard (user requirement)
+
+Noor-e-Hidayat is an Islamic learning and reference app, not a sect, denomination, movement, madhhab or organisation's platform. It must not assign a sectarian identity to the app, its users, the Prophet's teachings, Quran verses, Hadith collections, narrators, or scholars.
+
+### Display rules
+
+- Present the Quran and the named source editions of Sahih al-Bukhari and Sahih Muslim as source texts with exact citations. Do not add sectarian ownership labels.
+- Do not add sectarian filters, sect-based rankings, takfir, polemics, disparaging descriptions, or claims that one present-day group alone represents all Muslims.
+- Do not label a narrator, scholar, translation or tafsir as belonging to a sect unless a historically necessary fact is directly relevant, reliably sourced, and explained neutrally. Such labels are not required for the core reader and should normally be omitted.
+- Attribute every tafsir, translation, explanation, grading and scholarly view to the actual named author/editor/source. Never imply that one scholar's interpretation is the universal Muslim position.
+- Where reliable scholars differ, describe the disagreement with named sources and neutral language. Do not manufacture a consensus or decide the dispute in the app's own voice.
+- Separate primary source text from translation, commentary, editorial notes and user-interface copy. Preserve primary texts verbatim.
+- Do not add devotional slogans, polemical framing, or sect-specific rulings to source records.
+- If a question requires a religious ruling, the app should direct the reader to a qualified scholar rather than issuing an unattributed ruling.
+
+### Data and review gate
+
+Each release reviewer must check not only text accuracy and licensing but also that edition metadata contains no sectarian classification or polemical tags. Any necessary historical context must be cited and worded descriptively, not as endorsement. A neutral tone does not mean suppressing a source's own wording: quote the source faithfully, attribute it, and distinguish it from the app's editorial voice.
+
+This policy does not certify that every user or scholar agrees with every source. It defines how the app presents sourced material without defining or attacking any Muslim community.
