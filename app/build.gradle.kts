@@ -166,7 +166,7 @@ val downloadAmiriQuranFont by tasks.registering {
     fun download(url: String, destination: java.io.File) {
       if (destination.exists() && destination.length() > 1024L) return
       destination.parentFile.mkdirs()
-      val connection = java.net.URL(url).openConnection().apply {
+      val connection = (java.net.URL(url).openConnection() as java.net.HttpURLConnection).apply {
         connectTimeout = 20000
         readTimeout = 30000
         setRequestProperty("User-Agent", "Noor-e-Hidayat-Android-Build")
