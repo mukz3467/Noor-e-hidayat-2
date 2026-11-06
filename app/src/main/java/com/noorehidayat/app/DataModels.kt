@@ -64,7 +64,18 @@ data class Ayah(
     val hindiTranslation: String,
     val words: List<WordMeaning> = emptyList(),
     val revelationContext: String = "",
-    val translationEditions: List<AyahTranslationText> = emptyList()
+    val translationEditions: List<AyahTranslationText> = emptyList(),
+    val tafsirEntries: List<AyahTafsirText> = emptyList()
+)
+
+data class AyahTafsirText(
+    val editionId: String,
+    val languageCode: String,
+    val scholarName: String,
+    val translatorName: String?,
+    val workTitle: String,
+    val text: String,
+    val sourceReference: String
 )
 
 data class AyahTranslationText(
