@@ -14,7 +14,9 @@ import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.withContext
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -25,10 +27,15 @@ internal fun OfflineQuranDownloadScreen(
     val context = LocalContext.current
     val scope = rememberCoroutineScope()
     val isUrdu = appLanguage == AppLanguage.URDU
-    var completed by remember { mutableIntStateOf(QuranDataService.cachedSurahCount(context)) }
+    var completed by remember { mutableIntStateOf(0) }
     var downloading by remember { mutableStateOf(false) }
     var error by remember { mutableStateOf("") }
-    var finished by remember { mutableStateOf(completed == 114) }
+    var finished by remember { mutableStateOf(false) }
+
+    LaunchedEffect(context) {
+        completed = withContext(Dispatchers.IO) { QuranDataService.cachedSurahCount(context) }
+        finished = completed == 114
+    }
 
     Scaffold(
         topBar = {
