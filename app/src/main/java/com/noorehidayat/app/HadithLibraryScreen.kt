@@ -64,7 +64,7 @@ internal fun HadithLibraryScreen(
         // Join translations by the stable source hadith ID. A missing edition stays
         // empty; the UI explicitly reports that it is unavailable rather than translating it.
         val recordsByLanguage = languageRecords.mapValues { (_, rows) ->
-            rows.associateBy { it.id }
+            rows.associateBy { "${it.collectionId}:${it.id}" }
         }
         val baseRecords = languageRecords.values.flatten()
             .distinctBy { "${it.collectionId}:${it.id}" }
@@ -81,11 +81,11 @@ internal fun HadithLibraryScreen(
                 hadithNumber = record.id,
                 narrator = record.narrator.orEmpty(),
                 arabic = record.arabicText,
-                english = recordsByLanguage["en"]?.get(record.id)?.translation.orEmpty(),
-                urdu = recordsByLanguage["ur"]?.get(record.id)?.translation.orEmpty(),
+                english = recordsByLanguage["en"]?.get("${record.collectionId}:${record.id}")?.translation.orEmpty(),
+                urdu = recordsByLanguage["ur"]?.get("${record.collectionId}:${record.id}")?.translation.orEmpty(),
                 topic = record.bookTitle,
                 referenceUrl = "",
-                hindi = recordsByLanguage["hi"]?.get(record.id)?.translation.orEmpty()
+                hindi = recordsByLanguage["hi"]?.get("${record.collectionId}:${record.id}")?.translation.orEmpty()
             )
         }
         val databaseMuslimNumbers = baseRecords
@@ -205,7 +205,8 @@ internal fun HadithLibraryScreen(
                             }
                         }
 
-                        // Arabic Hadith
+                        // Arabic original text
+                        Text("Arabic · Original", color = Gold, fontSize = 11.sp, fontWeight = FontWeight.Bold)
                         Text(
                             item.arabic,
                             color = Cream,
@@ -220,17 +221,6 @@ internal fun HadithLibraryScreen(
 
                         Text("Narrated by: ${item.narrator}", color = Gold, fontSize = 11.sp, fontStyle = androidx.compose.ui.text.font.FontStyle.Italic)
                         Spacer(Modifier.height(6.dp))
-
-                        Text("Arabic · Original", color = Gold, fontSize = 11.sp, fontWeight = FontWeight.Bold)
-                        Text(
-                            item.arabic,
-                            color = Cream,
-                            fontSize = 22.sp,
-                            lineHeight = 38.sp,
-                            textAlign = TextAlign.End,
-                            fontFamily = FontFamily.Serif,
-                            modifier = Modifier.fillMaxWidth().padding(vertical = 8.dp)
-                        )
 
                         listOf(
                             Triple("English", item.english, false),
