@@ -161,7 +161,7 @@ internal fun HadithLibraryScreen(
         }
     }
 
-    val filtered = remember(searchQuery, selectedBook) {
+    val filtered = remember(searchQuery, selectedBook, hadiths) {
         hadiths.filter {
             (selectedBook == "All" || it.book == selectedBook) &&
             (searchQuery.isBlank() || it.english.contains(searchQuery, true) || it.urdu.contains(searchQuery) || it.arabic.contains(searchQuery) || it.topic.contains(searchQuery, true) || it.narrator.contains(searchQuery, true))
