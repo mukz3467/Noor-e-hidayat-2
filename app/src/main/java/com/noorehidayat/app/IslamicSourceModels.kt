@@ -112,7 +112,7 @@ data class HadithCollectionEdition(
     val hadithId: String,
     val narrator: String?,
     val arabicText: String,
-    val translations: List<AyahTranslationEdition>,
+    val translations: List<HadithTranslationEdition>,
     val sourceEditionId: String,
     val grading: String?,
     val sourceLocator: String,
