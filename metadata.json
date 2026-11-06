@@ -1,0 +1,6 @@
+{
+  "name": "Noor-e-Hidayat",
+  "description": "Islamic companion app featuring Holy Quran reader, translations, Tafseer, prayer times, Qibla compass, audio recitations, learning guide, and daily reminders.",
+  "requestFramePermissions": [],
+  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
+}
