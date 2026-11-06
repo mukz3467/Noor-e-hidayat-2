@@ -60,6 +60,7 @@ internal object IslamicContentImporter {
 
         val db = IslamicContentDatabase.get(context).writableDatabase
         db.beginTransaction()
+        val result: ImportResult
         try {
             clearReleaseTables(db)
             insertEditions(db, editions)
@@ -74,13 +75,13 @@ internal object IslamicContentImporter {
 
             val bukhari = hadiths.countObjects { it.optString("collectionId") == "sahih_al_bukhari" }
             val muslim = hadiths.countObjects { it.optString("collectionId") == "sahih_al_muslim" }
-            val result = ImportResult(quran.length(), translations.length(), tafsir.length(), bukhari, muslim)
+            result = ImportResult(quran.length(), translations.length(), tafsir.length(), bukhari, muslim)
             db.setTransactionSuccessful()
-            releasePrefs.edit().putString("installed_version", releaseVersion).apply()
-            return result
         } finally {
             db.endTransaction()
         }
+        releasePrefs.edit().putString("installed_version", releaseVersion).apply()
+        return result
     }
 
     private fun validateEditions(editions: JSONArray): Map<String, JSONObject> {
