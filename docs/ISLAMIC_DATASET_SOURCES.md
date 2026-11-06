@@ -61,6 +61,16 @@ A corpus may be marked `VERIFIED_FOR_RELEASE` only after all of the following ar
 5. Completeness checks against the declared edition counts and locators.
 6. No machine-generated translation, inferred Asbab report, or sectarian metadata.
 
-## Current status
+## Sahih Muslim Arabic corpus attached (2026-11-06)
 
-The Android database schema and JSON importer are present, but this repository branch does **not** yet contain a populated `app/src/main/assets/islamic-library/release.json` corpus. The datasets listed above are source candidates; they must not be described as already attached to the app.
+The repository now includes an offline Arabic Sahih Muslim corpus under `app/src/main/assets/islamic-library/sahih-muslim-ar/`:
+
+- Source endpoint: https://i-muslim.com/api/v1/translations/hadith/muslim/ar
+- Source metadata identifies the work as the classical Arabic edition, attributes it to the public-domain Arabic source, and identifies the upstream source as `fawazahmed0:ara-muslim`.
+- License evidence and source policy: https://i-muslim.com/id/downloads
+- The source response contained 7,563 numbered rows. Exactly 7,360 rows had non-empty Arabic text; 203 rows were empty placeholders. The app bundles the 7,360 non-empty narrations, preserves each upstream number, Arabic number and book number, and does not renumber the text.
+- The data is split into 15 JSON asset parts plus a manifest to keep repository commits manageable.
+- `SahihMuslimArabicCorpus.kt` validates all 15 parts, rejects duplicate source numbers and blank narrations, and requires exactly 7,360 records before displaying them offline.
+- `HadithLibraryScreen.kt` now appends the bundled Arabic corpus to the Hadith library. When Urdu, English or Hindi is selected, it explicitly shows that a translation is unavailable rather than generating or substituting one.
+
+Important limits: this is the Arabic original only. It does not establish licensed Urdu, English or Hindi translations, and the generic book-number labels are not scholarly book-title metadata. The full cross-language release manifest for Quran, tafsir and Bukhari remains a separate unfinished deliverable.
