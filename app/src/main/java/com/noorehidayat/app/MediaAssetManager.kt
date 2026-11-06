@@ -11,7 +11,7 @@ internal object MediaAssetManager {
     private const val PREFS = "noor_prefs"
     private const val ADHAN_FILE = "noor_adhan.ogg"
     private const val FATIHA_FILE = "quran_al_fatiha_alafasy.mp3"
-    private const val ADHAN_URL = "https://upload.wikimedia.org/wikipedia/commons/6/6a/Adhan.ogg"
+    private const val ADHAN_URL = "https://upload.wikimedia.org/wikipedia/commons/e/e7/Adhan.ogg"
     private const val FATIHA_URL = "https://cdn.islamic.network/quran/audio-surah/128/ar.alafasy/1.mp3"
 
     fun ensureStarterDownloads(context: Context) {
