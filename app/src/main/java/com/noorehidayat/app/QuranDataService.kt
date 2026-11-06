@@ -2,6 +2,7 @@ package com.noorehidayat.app
 
 import android.content.Context
 import java.io.IOException
+import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.withContext
@@ -155,6 +156,8 @@ object QuranDataService {
                 try {
                     getSurahBatch(context, surah.number)
                     break
+                } catch (error: CancellationException) {
+                    throw error
                 } catch (error: Exception) {
                     attempt++
                     if (attempt >= 3) throw error
