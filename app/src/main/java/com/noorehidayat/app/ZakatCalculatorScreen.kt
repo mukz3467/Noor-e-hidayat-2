@@ -25,6 +25,7 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 
 private data class ZakatAsset(val id: Int, val kind: String, val amount: String = "", val rate: String = "")
+private data class ZakatDeduction(val id: Int, val kind: String, val amount: String = "")
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -38,8 +39,10 @@ internal fun ZakatCalculatorScreen(appLanguage: AppLanguage = AppLanguage.ENGLIS
     var assets by remember { mutableStateOf(listOf(ZakatAsset(1, kinds[0].first))) }
     var nextId by remember { mutableIntStateOf(2) }
     var addExpanded by remember { mutableStateOf(false) }
-    var debt by remember { mutableStateOf("") }
-    var dueBills by remember { mutableStateOf("") }
+    val deductionKinds = listOf("Short-term debts due" to "قریب الادا قرض", "Overdue bills / essential dues" to "واجب الادا بل اور ضروری واجبات", "Other eligible liabilities" to "دیگر قابلِ کٹوتی واجبات")
+    var deductionItems by remember { mutableStateOf(emptyList<ZakatDeduction>()) }
+    var nextDeductionId by remember { mutableIntStateOf(1) }
+    var deductionExpanded by remember { mutableStateOf(false) }
     var nisabType by remember { mutableStateOf("Silver") }
     var silverRate by remember { mutableStateOf("") }
     var goldRate by remember { mutableStateOf("") }
@@ -47,8 +50,8 @@ internal fun ZakatCalculatorScreen(appLanguage: AppLanguage = AppLanguage.ENGLIS
     fun n(s: String) = s.replace(",", "").toDoubleOrNull()?.coerceAtLeast(0.0) ?: 0.0
     fun metal(kind: String) = kind == "Gold" || kind == "Silver"
     val assetTotal = assets.sumOf { if (metal(it.kind)) n(it.amount) * n(it.rate) else n(it.amount) }
-    val deductions = n(debt) + n(dueBills)
-    val net = (assetTotal - deductions).coerceAtLeast(0.0)
+    val totalDeductions = deductionItems.sumOf { n(it.amount) }
+    val net = (assetTotal - totalDeductions).coerceAtLeast(0.0)
     val nisab = if (nisabType == "Silver") 612.36 * n(silverRate) else 87.48 * n(goldRate)
     val hasNisab = nisab > 0
     val eligible = hasNisab && net >= nisab
@@ -79,11 +82,11 @@ internal fun ZakatCalculatorScreen(appLanguage: AppLanguage = AppLanguage.ENGLIS
                         Text(if (urdu) "2.5% زکوٰۃ (تخمینہ)" else "Estimated Zakat at 2.5%", color = Muted, fontSize = 11.sp)
                         HorizontalDivider(color = Border)
                         ZakatResultRow(if (urdu) "کل اثاثے" else "Total assets", "$symbol \${"%,.2f".format(assetTotal)}")
-                        ZakatResultRow(if (urdu) "قرض اور واجبات" else "Debts and due bills", "$symbol \${"%,.2f".format(deductions)}")
+                        ZakatResultRow(if (urdu) "اختیاری کٹوتیاں" else "Optional deductions", "$symbol ${"%,.2f".format(totalDeductions)}")
                         ZakatResultRow(if (urdu) "خالص مال" else "Net wealth", "$symbol \${"%,.2f".format(net)}")
                         ZakatResultRow(if (urdu) "نصاب" else "$nisabType Nisab", if (hasNisab) "$symbol \${"%,.2f".format(nisab)}" else "—")
                         OutlinedButton(onClick = {
-                            val summary = "Noor-e-Hidayat Zakat estimate\nCurrency: \${currencies[currencyIndex].first}\nAssets: \${"%.2f".format(assetTotal)}\nDeductions: \${"%.2f".format(deductions)}\nNet wealth: \${"%.2f".format(net)}\nNisab: \${"%.2f".format(nisab)}\nEstimated Zakat (2.5%): \${"%.2f".format(zakat)}"
+                            val summary = "Noor-e-Hidayat Zakat estimate\nCurrency: \${currencies[currencyIndex].first}\nAssets: \${"%.2f".format(assetTotal)}\nOptional deductions: ${"%.2f".format(totalDeductions)}\nNet wealth: \${"%.2f".format(net)}\nNisab: \${"%.2f".format(nisab)}\nEstimated Zakat (2.5%): \${"%.2f".format(zakat)}"
                             val clipboard = context.getSystemService(Context.CLIPBOARD_SERVICE) as ClipboardManager
                             clipboard.setPrimaryClip(ClipData.newPlainText("Zakat estimate", summary))
                             Toast.makeText(context, if (urdu) "حساب کاپی ہوگیا" else "Calculation copied", Toast.LENGTH_SHORT).show()
@@ -138,9 +141,35 @@ internal fun ZakatCalculatorScreen(appLanguage: AppLanguage = AppLanguage.ENGLIS
                 }
             }
             item {
-                ZakatPanel(if (urdu) "4۔ واجب الادا قرض اور بل" else "4. Debts and due bills") {
-                    ZakatNumberField(if (urdu) "فوری واجب الادا قرضے ($symbol)" else "Debts currently due ($symbol)", debt) { debt = it }
-                    ZakatNumberField(if (urdu) "واجب الادا بل ($symbol)" else "Overdue bills / dues ($symbol)", dueBills) { dueBills = it }
+                ZakatPanel(if (urdu) "4۔ اختیاری کٹوتیاں" else "4. Optional deductions") {
+                    Text(if (urdu) "اگر آپ پر کوئی قابلِ کٹوتی قرض یا واجب الادا رقم ہے تو شامل کریں؛ ورنہ اس حصے کو خالی چھوڑ دیں۔" else "Add a deduction only if it applies to you. If you have none, leave this section empty.", color = Muted, fontSize = 11.sp)
+                    deductionItems.forEach { item ->
+                        Card(Modifier.fillMaxWidth(), colors = CardDefaults.cardColors(containerColor = Deep), border = BorderStroke(1.dp, Border), shape = RoundedCornerShape(10.dp)) {
+                            Column(Modifier.padding(9.dp), verticalArrangement = Arrangement.spacedBy(5.dp)) {
+                                Row(verticalAlignment = Alignment.CenterVertically) {
+                                    Text(if (urdu) deductionKinds.firstOrNull { it.first == item.kind }?.second ?: item.kind else item.kind, color = Cream, fontSize = 11.sp, fontWeight = FontWeight.SemiBold, modifier = Modifier.weight(1f))
+                                    TextButton(onClick = { deductionItems = deductionItems.filterNot { it.id == item.id } }) { Text(if (urdu) "ہٹائیں" else "Remove", color = Color(0xFFE57373), fontSize = 10.sp) }
+                                }
+                                ZakatNumberField(if (urdu) "رقم ($symbol)" else "Amount ($symbol)", item.amount) { value ->
+                                    deductionItems = deductionItems.map { if (it.id == item.id) it.copy(amount = value) else it }
+                                }
+                            }
+                        }
+                    }
+                    Box {
+                        OutlinedButton(onClick = { deductionExpanded = true }, modifier = Modifier.fillMaxWidth(), colors = ButtonDefaults.outlinedButtonColors(contentColor = Gold), border = BorderStroke(1.dp, Gold)) {
+                            Icon(Icons.Default.Add, null); Spacer(Modifier.width(5.dp)); Text(if (urdu) "کٹوتی شامل کریں" else "Add a deduction")
+                        }
+                        DropdownMenu(expanded = deductionExpanded, onDismissRequest = { deductionExpanded = false }) {
+                            deductionKinds.forEach { kind ->
+                                DropdownMenuItem(text = { Text(if (urdu) kind.second else kind.first) }, onClick = {
+                                    deductionItems = deductionItems + ZakatDeduction(nextDeductionId++, kind.first)
+                                    deductionExpanded = false
+                                })
+                            }
+                        }
+                    }
+                    Text(if (urdu) "کل کٹوتی: $symbol ${"%,.2f".format(totalDeductions)}" else "Total deductions: $symbol ${"%,.2f".format(totalDeductions)}", color = Gold, fontSize = 11.sp, fontWeight = FontWeight.SemiBold)
                 }
             }
             item {
