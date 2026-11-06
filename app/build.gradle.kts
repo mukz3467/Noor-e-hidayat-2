@@ -13,8 +13,8 @@ plugins {
 val generatedAmiriResources = layout.buildDirectory.dir("generated/amiriResources")
 
 android {
-  sourceSets.getByName("main").res.srcDir(generatedAmiriResources.map { it.dir("res") })
-  sourceSets.getByName("main").assets.srcDir(generatedAmiriResources.map { it.dir("assets") })
+  sourceSets.getByName("main").res.srcDir(generatedAmiriResources.get().dir("res"))
+  sourceSets.getByName("main").assets.srcDir(generatedAmiriResources.get().dir("assets"))
   namespace = "com.noorehidayat.app"
   compileSdk { version = release(36) { minorApiLevel = 1 } }
 
