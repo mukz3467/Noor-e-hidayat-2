@@ -3,6 +3,8 @@ package com.noorehidayat.app
 import android.content.ClipData
 import android.content.ClipboardManager
 import android.content.Context
+import android.content.Intent
+import android.net.Uri
 import android.widget.Toast
 import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.background
@@ -48,6 +50,7 @@ internal fun HisnAlMuslimScreen(appLanguage: AppLanguage = AppLanguage.ENGLISH) 
                 english = "O Allah, You are my Lord; there is no deity except You. You created me and I am Your servant, and I uphold Your covenant and promise as much as I am able...",
                 urdu = "اے اللہ تو میرا رب ہے، تیرے سوا کوئی معبود نہیں، تو نے مجھے پیدا کیا اور میں تیرا بندہ ہوں اور میں اپنی طاقت کے مطابق تیرے عہد اور وعدے پر قائم ہوں...",
                 reference = "Sahih al-Bukhari (6306)",
+                referenceUrl = "https://sunnah.com/bukhari:6306",
                 virtue = "Whoever recites this with sincere conviction and passes away that day enters Paradise.",
                 recommendedCount = 1
             ),
@@ -62,6 +65,7 @@ internal fun HisnAlMuslimScreen(appLanguage: AppLanguage = AppLanguage.ENGLISH) 
                 english = "In the name of Allah, with whose name nothing on earth or in heaven can cause harm, and He is the All-Hearing, the All-Knowing.",
                 urdu = "اللہ کے نام سے جس کے نام کی برکت سے زمین اور آسمان کی کوئی چیز نقصان نہیں پہنچا سکتی اور وہی خوب سننے اور جاننے والا ہے۔",
                 reference = "Sunan Abi Dawud (5088), Jami` at-Tirmidhi (3388)",
+                referenceUrl = "https://sunnah.com/abudawud:5088",
                 virtue = "Recited 3 times in morning and evening to be protected from all unexpected harm.",
                 recommendedCount = 3
             ),
@@ -76,6 +80,7 @@ internal fun HisnAlMuslimScreen(appLanguage: AppLanguage = AppLanguage.ENGLISH) 
                 english = "All praise is for Allah who gave us life after having taken it from us, and unto Him is the resurrection.",
                 urdu = "تمام تعریفیں اللہ کے لیے ہیں جس نے ہمیں مارنے کے بعد زندہ کیا اور اسی کی طرف اٹھنا ہے۔",
                 reference = "Sahih al-Bukhari (6312)",
+                referenceUrl = "https://sunnah.com/bukhari:6312",
                 virtue = "Revives connection with Allah right at the start of the day.",
                 recommendedCount = 1
             ),
@@ -90,6 +95,7 @@ internal fun HisnAlMuslimScreen(appLanguage: AppLanguage = AppLanguage.ENGLISH) 
                 english = "In Your name, O Allah, I die and I live.",
                 urdu = "اے اللہ! تیرے ہی نام کے ساتھ میں مرتا ہوں اور جیتا ہوں۔",
                 reference = "Sahih al-Bukhari (6324)",
+                referenceUrl = "https://sunnah.com/bukhari:6324",
                 virtue = "Entrusts the soul directly to Allah's care during the night.",
                 recommendedCount = 1
             ),
@@ -104,6 +110,7 @@ internal fun HisnAlMuslimScreen(appLanguage: AppLanguage = AppLanguage.ENGLISH) 
                 english = "O Allah, open for me the gates of Your mercy.",
                 urdu = "اے اللہ! میرے لیے اپنی رحمت کے دروازے کھول دے۔",
                 reference = "Sahih Muslim (713)",
+                referenceUrl = "https://sunnah.com/muslim:713",
                 virtue = "Enters the house of Allah under His active mercy and angels' prayer.",
                 recommendedCount = 1
             ),
@@ -118,6 +125,7 @@ internal fun HisnAlMuslimScreen(appLanguage: AppLanguage = AppLanguage.ENGLISH) 
                 english = "In the name of Allah, I trust in Allah; there is no power or strength except with Allah.",
                 urdu = "اللہ کے نام کے ساتھ، میں نے اللہ پر بھروسہ کیا، نیکی اور برائی سے بچنے کی کوئی طاقت نہیں مگر اللہ ہی سے۔",
                 reference = "Abu Dawud (5095), at-Tirmidhi (3426)",
+                referenceUrl = "https://sunnah.com/abudawud:5095",
                 virtue = "It is said to him: 'You are guided, defended and protected', and Shaytan turns away from him.",
                 recommendedCount = 1
             ),
@@ -132,6 +140,7 @@ internal fun HisnAlMuslimScreen(appLanguage: AppLanguage = AppLanguage.ENGLISH) 
                 english = "O Allah, I seek refuge in You from anxiety and grief, helplessness and laziness, stinginess and cowardice, the burden of debt and oppression by men.",
                 urdu = "اے اللہ! میں غم اور پریشانی، عاجزی اور سستی، بخل اور بزدلی، قرض کے بوجھ اور لوگوں کے غلبے سے تیری پناہ مانگتا ہوں۔",
                 reference = "Sahih al-Bukhari (6369)",
+                referenceUrl = "https://sunnah.com/bukhari:6369",
                 virtue = "Prophet ﷺ regularly taught this to companions facing unbearable grief or heavy debt.",
                 recommendedCount = 1
             ),
@@ -146,6 +155,7 @@ internal fun HisnAlMuslimScreen(appLanguage: AppLanguage = AppLanguage.ENGLISH) 
                 english = "There is no deity except You; exalted are You. Indeed, I have been of the wrongdoers.",
                 urdu = "تیرے سوا کوئی معبود نہیں، تو پاک ہے، بے شک میں ہی قصوروار تھا۔",
                 reference = "Surah Al-Anbiya (21:87), Jami` at-Tirmidhi (3505)",
+                referenceUrl = "https://sunnah.com/tirmidhi:3505",
                 virtue = "No Muslim supplicates with this for any distress except that Allah relieves him.",
                 recommendedCount = 1
             ),
@@ -160,6 +170,7 @@ internal fun HisnAlMuslimScreen(appLanguage: AppLanguage = AppLanguage.ENGLISH) 
                 english = "Glory to Him who has subjected this to us, for we could never have accomplished this by ourselves, and to our Lord we shall return.",
                 urdu = "پاک ہے وہ ذات جس نے اس (سواری) کو ہمارے قابو میں کر دیا، اور ہم اسے قابو میں لانے والے نہ تھے، اور ہم اپنے رب ہی کی طرف لوٹنے والے ہیں۔",
                 reference = "Surah Az-Zukhruf (43:13-14), Sahih Muslim (1342)",
+                referenceUrl = "https://sunnah.com/muslim:1342",
                 virtue = "Provides spiritual safety and blessings throughout the journey.",
                 recommendedCount = 1
             )
@@ -308,6 +319,23 @@ internal fun HisnAlMuslimScreen(appLanguage: AppLanguage = AppLanguage.ENGLISH) 
                         ) {
                             Text(dua.reference, color = Gold, fontSize = 10.sp, fontWeight = FontWeight.SemiBold)
                             Text("Benefit: ${dua.virtue}", color = Muted, fontSize = 10.sp, modifier = Modifier.weight(1f, fill = false), textAlign = TextAlign.End)
+                        }
+                        if (dua.referenceUrl.isNotBlank()) {
+                            TextButton(
+                                onClick = {
+                                    try {
+                                        ctx.startActivity(Intent(Intent.ACTION_VIEW, Uri.parse(dua.referenceUrl)))
+                                    } catch (_: Exception) {
+                                        Toast.makeText(ctx, "Unable to open the source reference.", Toast.LENGTH_SHORT).show()
+                                    }
+                                }
+                            ) {
+                                Text(
+                                    if (appLanguage == AppLanguage.URDU) "اصل حوالہ دیکھیں" else "Open source reference",
+                                    color = Gold,
+                                    fontSize = 12.sp
+                                )
+                            }
                         }
                     }
                 }
