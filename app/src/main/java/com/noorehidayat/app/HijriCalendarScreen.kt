@@ -82,12 +82,11 @@ internal fun HijriCalendarScreen(appLanguage: AppLanguage = AppLanguage.ENGLISH)
     val sacredCountdowns = remember(hijriDay, hijriMonthIdx) {
         listOf(
             SacredSeasonCountdown("Ramadan Mubarak", "رمضان المبارک", "1 Ramadan", calculateDaysUntil(todayJulianDay, hijriYear, 8, 1), "🌙"),
-            SacredSeasonCountdown("Laylat al-Qadr", "شبِ قدر", "27 Ramadan", calculateDaysUntil(todayJulianDay, hijriYear, 8, 27), "✨"),
+            SacredSeasonCountdown("27th Ramadan (possible Laylat al-Qadr night)", "27 رمضان (شبِ قدر کی ممکنہ رات)", "27 Ramadan", calculateDaysUntil(todayJulianDay, hijriYear, 8, 27), "✨"),
             SacredSeasonCountdown("Eid al-Fitr", "عید الفطر", "1 Shawwal", calculateDaysUntil(todayJulianDay, hijriYear, 9, 1), "🕌"),
             SacredSeasonCountdown("Day of Arafah", "یومِ عرفہ", "9 Dhu al-Hijjah", calculateDaysUntil(todayJulianDay, hijriYear, 11, 9), "🕋"),
             SacredSeasonCountdown("Eid al-Adha", "عید الاضحیٰ", "10 Dhu al-Hijjah", calculateDaysUntil(todayJulianDay, hijriYear, 11, 10), "🐑"),
             SacredSeasonCountdown("Ashura (10th Muharram)", "یومِ عاشوراء", "10 Muharram", calculateDaysUntil(todayJulianDay, hijriYear, 0, 10), "📜"),
-            SacredSeasonCountdown("Rabi' al-Awwal (Mawlid)", "ربیع الاول شریف", "12 Rabi' al-Awwal", calculateDaysUntil(todayJulianDay, hijriYear, 2, 12), "🌹")
         )
     }
 
@@ -115,9 +114,9 @@ internal fun HijriCalendarScreen(appLanguage: AppLanguage = AppLanguage.ENGLISH)
 
         Text(
             if (appLanguage == AppLanguage.URDU)
-                "یہ تاریخ تخمینی حساب سے ہے، سرکاری ام القریٰ یا مقامی رویتِ ہلال کی تصدیق نہیں۔"
+                "یہ تاریخ حسابی ہجری کیلنڈر کا تخمینہ ہے، مقامی رویتِ ہلال یا سرکاری اعلان نہیں۔"
             else
-                "This is an astronomical estimate, not an official Umm al-Qura or local moon-sighting date. Confirm important dates with your local authority.",
+                "This is a tabular Islamic-calendar estimate, not an official or local moon-sighting date. Confirm important dates with your local authority.",
             color = Muted,
             fontSize = 12.sp,
             modifier = Modifier.padding(bottom = 10.dp)
