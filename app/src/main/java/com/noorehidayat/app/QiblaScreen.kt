@@ -11,6 +11,7 @@ import android.hardware.SensorManager
 import android.location.Location
 import android.location.LocationListener
 import android.location.LocationManager
+import android.os.Looper
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.animation.animateColorAsState
@@ -90,7 +91,24 @@ internal fun QiblaScreen(appLanguage: AppLanguage = AppLanguage.ENGLISH) {
                 locationError = ""
             } else {
                 coordinates = null
-                locationError = "No recent location is available. Turn on device location and try again."
+                locationError = "Waiting for a fresh device location…"
+                val provider = providers.firstOrNull()
+                if (provider != null) {
+                    locationManager.requestSingleUpdate(provider, object : LocationListener {
+                        override fun onLocationChanged(location: Location) {
+                            coordinates = location
+                            locationError = ""
+                        }
+                        @Deprecated("Deprecated in Android")
+                        override fun onStatusChanged(provider: String?, status: Int, extras: android.os.Bundle?) = Unit
+                        override fun onProviderEnabled(provider: String) = Unit
+                        override fun onProviderDisabled(provider: String) {
+                            locationError = "Location provider was disabled."
+                        }
+                    }, Looper.getMainLooper())
+                } else {
+                    locationError = "No location provider is enabled. Turn on device location and retry."
+                }
             }
         } catch (e: Exception) {
             coordinates = null
