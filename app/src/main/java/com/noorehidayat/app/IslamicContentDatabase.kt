@@ -212,6 +212,35 @@ internal class IslamicContentDatabase private constructor(context: Context) :
                 )
             }
         }
+        readableDatabase.rawQuery(
+            """SELECT t.ayah_number, t.text, t.edition_id, e.language_code,
+                      e.scholar_name, e.translator_name, e.work_title, t.source_reference
+               FROM tafsir_entries t
+               JOIN content_editions e ON e.edition_id = t.edition_id
+               WHERE t.surah_number = ? AND e.content_type = 'tafsir'
+                 AND e.review_status = 'VERIFIED_FOR_RELEASE'
+               ORDER BY e.language_code, e.scholar_name, e.edition_id""",
+            arrayOf(surahNumber.toString())
+        ).use { cursor ->
+            val byAyah = mutableMapOf<Int, MutableList<AyahTafsirText>>()
+            while (cursor.moveToNext()) {
+                byAyah.getOrPut(cursor.getInt(0)) { mutableListOf() }.add(
+                    AyahTafsirText(
+                        editionId = cursor.getString(2),
+                        languageCode = cursor.getString(3),
+                        scholarName = cursor.getString(4),
+                        translatorName = cursor.getString(5),
+                        workTitle = cursor.getString(6),
+                        text = cursor.getString(1),
+                        sourceReference = cursor.getString(7)
+                    )
+                )
+            }
+            byAyah.forEach { (number, entries) ->
+                val current = ayahs[number] ?: return@forEach
+                ayahs[number] = current.copy(tafsirEntries = entries)
+            }
+        }
         return ayahs.values.toList()
     }
 
@@ -304,7 +333,7 @@ internal class IslamicContentDatabase private constructor(context: Context) :
         val arabicCount = scalarCount(db, "SELECT COUNT(*) FROM quran_ayahs")
         val translations = mutableMapOf<String, Int>()
         db.rawQuery(
-            """SELECT e.language_code, COUNT(*)
+            """SELECT e.language_code, COUNT(DISTINCT t.surah_number || ':' || t.ayah_number)
                FROM quran_translations t JOIN content_editions e ON e.edition_id = t.edition_id
                WHERE e.review_status = 'VERIFIED_FOR_RELEASE'
                GROUP BY e.language_code""",
