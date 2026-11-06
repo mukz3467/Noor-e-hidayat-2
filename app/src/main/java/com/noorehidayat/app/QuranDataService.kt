@@ -129,17 +129,8 @@ object QuranDataService {
         Surah(114, "الناس", "An-Nas", "Mankind", 6, "Meccan")
     )
 
-    private val shanENuzulMap = mapOf(
-        1 to "Revealed in Makkah early in the Prophetic mission. Known as Umm al-Kitab (Mother of the Book) and al-Sab' al-Mathani (The Seven Oft-Repeated Verses). It is the opening dialogue between servant and Creator recited in every unit of Salah.",
-        2 to "Revealed in Madinah over several years. Addresses legal frameworks, faith principles, the history of Adam (AS), Bani Israel, and ends with the legendary Ayat al-Kursi (2:255).",
-        36 to "Revealed in Makkah to reassure the Prophet ﷺ and validate the Divine message when Quraysh chieftains rejected resurrection. Considered the Heart of the Quran.",
-        55 to "Known as 'The Bride of the Quran' ('Aroos al-Quran). Highlights divine favors and repeatedly challenges mankind and jinn: 'Which of the favors of your Lord will you deny?'",
-        67 to "Revealed in Makkah. Recited before sleep to provide protection in the grave, focusing on Allah's absolute sovereignty and dominion over the cosmos.",
-        108 to "Revealed when al-'As ibn Wa'il mocked the Prophet ﷺ after the death of his son al-Qasim, calling him 'Abtar' (cut off). Allah responded by granting him al-Kawthar (Infinite Abundance).",
-        112 to "Revealed when the polytheists of Makkah asked the Prophet ﷺ: 'Describe your Lord's lineage to us.' Allah revealed the eternal declaration of Tawhid (Absolute Oneness).",
-        113 to "Revealed alongside Surah An-Nas (al-Mu'awwidhatayn) when a spell was attempted by Labid ibn al-A'sam. Jibril (AS) descended with these two Surahs for spiritual protection.",
-        114 to "Revealed for seeking refuge from the whisperings of Satan and evil instigators among mankind and jinn."
-    )
+    // Unsourced Asbab al-Nuzul summaries were removed. Do not present a general summary
+    // as a verified cause-of-revelation report; add only source-checked material here.
 
     /** Number of Surahs whose complete Arabic text and Urdu/English translations are cached. */
     fun cachedSurahCount(context: Context): Int {
@@ -251,7 +242,6 @@ object QuranDataService {
             )
         }
         val result = mutableListOf<Ayah>()
-        val contextNote = shanENuzulMap[surahNumber] ?: ""
 
         for (idx in 0 until count) {
             val num = idx + 1
@@ -268,7 +258,7 @@ object QuranDataService {
                     arabicTafseer = arabicTafseerAyahs.getOrNull(idx) ?: "",
                     hindiTranslation = hindiAyahs.getOrNull(idx) ?: "",
                     words = words,
-                    revelationContext = if (idx == 0) contextNote else ""
+                    revelationContext = ""
                 )
             )
         }
