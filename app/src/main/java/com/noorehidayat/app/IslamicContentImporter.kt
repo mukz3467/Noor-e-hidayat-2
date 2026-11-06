@@ -122,6 +122,19 @@ internal object IslamicContentImporter {
             require(edition.required("editionVersion").isNotBlank()) { "Edition '$id' has no edition version." }
             require(edition.required("sha256").matches(Regex("^[a-fA-F0-9]{64}$"))) { "Edition '$id' has an invalid SHA-256." }
             require(edition.required("reviewStatus") == VERIFIED) { "Edition '$id' has not passed release review." }
+            val sectarianMetadataKeys = listOf(
+                "sectLabel",
+                "sectarianLabel",
+                "sectarianGroup",
+                "sectAffiliation",
+                "denominationLabel",
+                "groupIdentity"
+            )
+            require(sectarianMetadataKeys.none { key ->
+                edition.optString(key).isNotBlank()
+            }) {
+                "Edition '$id' must not assign sectarian or denomination labels."
+            }
             require(result.put(id, edition) == null) { "Duplicate edition ID '$id'." }
         }
         return result
