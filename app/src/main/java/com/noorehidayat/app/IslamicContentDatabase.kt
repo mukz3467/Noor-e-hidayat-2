@@ -301,10 +301,6 @@ internal class IslamicContentDatabase private constructor(context: Context) :
             where.append(" AND h.collection_id = ?")
             args += collectionId
         }
-        if (!languageCode.isNullOrBlank()) {
-            where.append(" AND te.language_code = ? AND te.review_status = 'VERIFIED_FOR_RELEASE'")
-            args += languageCode
-        }
         val sql =
             """SELECT h.hadith_id, h.collection_id, b.book_title, c.chapter_title,
                       h.narrator, h.arabic_text, h.source_locator, ht.text
@@ -313,9 +309,12 @@ internal class IslamicContentDatabase private constructor(context: Context) :
                LEFT JOIN hadith_chapters c ON c.chapter_id = h.chapter_id
                LEFT JOIN hadith_translations ht ON ht.hadith_id = h.hadith_id
                LEFT JOIN content_editions te ON te.edition_id = ht.edition_id
+                    AND te.language_code = ? AND te.review_status = 'VERIFIED_FOR_RELEASE'
                WHERE $where
                ORDER BY h.collection_id, b.book_number, h.hadith_id"""
-        return readableDatabase.rawQuery(sql, args.toTypedArray().takeIf { it.isNotEmpty() }).use { cursor ->
+        // Keep the Arabic source text visible even when no separate Arabic translation row exists.
+        args.add(0, languageCode.orEmpty())
+        return readableDatabase.rawQuery(sql, args.toTypedArray()).use { cursor ->
             buildList {
                 while (cursor.moveToNext()) {
                     add(
