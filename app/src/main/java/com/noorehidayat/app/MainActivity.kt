@@ -392,6 +392,17 @@ private fun NoorApp() {
                     currentLanguage = appLanguage,
                     onNavigateBack = { currentPage = "More" }
                 )
+                "Calligraphy Gallery" -> {
+                    LaunchedEffect(Unit) {
+                        ctx.startActivity(
+                            Intent(
+                                Intent.ACTION_VIEW,
+                                Uri.parse("https://freeislamiccalligraphy.com/all-quran/es")
+                            )
+                        )
+                        currentPage = "More"
+                    }
+                }
                 "Live" -> LiveHarameynScreen(
                     appLanguage = appLanguage,
                     isTheaterMode = isTheaterMode,
@@ -1825,6 +1836,7 @@ private fun MoreHubScreen(
             Triple(if (appLanguage == AppLanguage.URDU) "قرآن آف لائن ڈاؤن لوڈ کریں" else "Download Quran for offline reading", "Save all 114 Surahs and Urdu/English translations on this device", "Offline Quran"),
             Triple(if (appLanguage == AppLanguage.URDU) "روزانہ یاد دہانی" else "Daily Reminder", "Optional daily reminder at 9:00 AM local time", "Daily Reminder"),
             Triple(I18n.t("theme_settings", appLanguage), "12 themes, eye-comfort mode and custom colors", "Theme Settings"),
+            Triple(if (appLanguage == AppLanguage.URDU) "قرآنی خطاطی گیلری" else "Quran Calligraphy Gallery", "Open the publisher's original gallery; artwork is not copied into the app", "Calligraphy Gallery"),
             Triple(I18n.t("khatam_planner", appLanguage), "30-Day Goal, Prayer Targets & 30 Juz Tracker", "Khatam Planner"),
             Triple(I18n.t("ramadan_mode", appLanguage), "Sehar/Iftar Countdown, Daily Duas & Tarawih", "Ramadan Companion"),
             Triple(I18n.t("card_generator", appLanguage), "1-Click Luxury Ayah & Hadith Social Cards", "Social Card"),
