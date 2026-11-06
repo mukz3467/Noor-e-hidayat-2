@@ -3,6 +3,8 @@ package com.noorehidayat.app
 import android.content.ClipData
 import android.content.ClipboardManager
 import android.content.Context
+import android.content.Intent
+import android.net.Uri
 import android.widget.Toast
 import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.background
@@ -36,7 +38,7 @@ internal fun HadithLibraryScreen(
     var selectedBook by remember { mutableStateOf("All") }
 
     val books = remember {
-        listOf("All", "Sahih al-Bukhari", "Sahih Muslim", "40 Hadith Nawawi", "Riyad as-Salihin")
+        listOf("All", "Sahih al-Bukhari", "Sahih Muslim", "Jami` at-Tirmidhi", "40 Hadith Nawawi", "Riyad as-Salihin")
     }
 
     val hadiths = remember {
@@ -50,7 +52,8 @@ internal fun HadithLibraryScreen(
                 arabic = "إِنَّمَا الأَعْمَالُ بِالنِّيَّاتِ، وَإِنَّمَا لِكُلِّ امْرِئٍ مَا نَوَى",
                 english = "Actions are judged by intentions, and every person will get what they intended.",
                 urdu = "اعمال کا دارومدار نیتوں پر ہے، اور ہر انسان کو وہی ملے گا جس کی اس نے نیت کی۔",
-                topic = "Intention & Sincerity"
+                topic = "Intention & Sincerity",
+                referenceUrl = "https://sunnah.com/bukhari:1"
             ),
             HadithItem(
                 id = "2",
@@ -61,18 +64,20 @@ internal fun HadithLibraryScreen(
                 arabic = "لَا يُؤْمِنُ أَحَدُكُمْ حَتَّى يُحِبَّ لِأَخِيهِ مَا يُحِبُّ لِنَفْسِهِ",
                 english = "None of you truly believes until he loves for his brother what he loves for himself.",
                 urdu = "تم میں سے کوئی شخص اس وقت تک مومن نہیں ہو سکتا جب تک وہ اپنے بھائی کے لیے وہی پسند نہ کرے جو اپنے لیے پسند کرتا ہے۔",
-                topic = "Brotherhood & Love"
+                topic = "Brotherhood & Love",
+                referenceUrl = "https://sunnah.com/bukhari:13"
             ),
             HadithItem(
                 id = "3",
                 book = "Sahih Muslim",
                 chapter = "Virtues & Etiquette",
-                hadithNumber = "Hadith 2564",
+                hadithNumber = "Hadith 2564c",
                 narrator = "Abu Hurairah (RA)",
                 arabic = "إِنَّ اللَّهَ لَا يَنْظُرُ إِلَى صُوَرِكُمْ وَأَمْوَالِكُمْ، وَلَكِنْ يَنْظُرُ إِلَى قُلُوبِكُمْ وَأَعْمَالِكُمْ",
                 english = "Verily, Allah does not look at your outward appearances or your wealth, but He looks at your hearts and your deeds.",
                 urdu = "بے شک اللہ تعالی تمہاری صورتوں اور تمہارے مالوں کو نہیں دیکھتا، بلکہ وہ تمہارے دلوں اور تمہارے اعمال کو دیکھتا ہے۔",
-                topic = "Purity of Heart"
+                topic = "Purity of Heart",
+                referenceUrl = "https://sunnah.com/muslim:2564c"
             ),
             HadithItem(
                 id = "4",
@@ -83,7 +88,8 @@ internal fun HadithLibraryScreen(
                 arabic = "الإِحْسَانُ أَنْ تَعْبُدَ اللَّهَ كَأَنَّكَ تَرَاهُ، فَإِنْ لَمْ تَكُنْ تَرَاهُ فَإِنَّهُ يَرَاكَ",
                 english = "Ihsan (spiritual excellence) is to worship Allah as though you see Him; and if you do not see Him, indeed He sees you.",
                 urdu = "احسان یہ ہے کہ تم اللہ کی عبادت اس طرح کرو گویا تم اسے دیکھ رہے ہو، اور اگر تم اسے نہ دیکھ سکو تو یقین جانو کہ وہ تمہیں دیکھ رہا ہے۔",
-                topic = "Ihsan & Excellence"
+                topic = "Ihsan & Excellence",
+                referenceUrl = "https://sunnah.com/nawawi40:2"
             ),
             HadithItem(
                 id = "5",
@@ -94,18 +100,20 @@ internal fun HadithLibraryScreen(
                 arabic = "خَيْرُكُمْ مَنْ تَعَلَّمَ الْقُرْآنَ وَعَلَّمَهُ",
                 english = "The best among you are those who learn the Quran and teach it to others.",
                 urdu = "تم میں سے سب سے بہتر وہ شخص ہے جس نے قرآن سیکھا اور دوسروں کو سکھایا۔",
-                topic = "Quran Learning"
+                topic = "Quran Learning",
+                referenceUrl = "https://sunnah.com/bukhari:5027"
             ),
             HadithItem(
                 id = "6",
-                book = "Sahih Muslim",
-                chapter = "Charity & Kindness",
-                hadithNumber = "Hadith 1009",
+                book = "Jami` at-Tirmidhi",
+                chapter = "Righteousness & Good Deeds",
+                hadithNumber = "Hadith 1956 · Hasan",
                 narrator = "Abu Dharr (RA)",
                 arabic = "تَبَسُّمُكَ فِي وَجْهِ أَخِيكَ لَكَ صَدَقَةٌ",
                 english = "Smiling in the face of your brother is an act of charity for you.",
                 urdu = "اپنے بھائی کے سامنے مسکرانا بھی تمہارے لیے صدقہ ہے۔",
-                topic = "Kindness & Charity"
+                topic = "Kindness & Charity",
+                referenceUrl = "https://sunnah.com/tirmidhi:1956"
             ),
             HadithItem(
                 id = "7",
@@ -116,7 +124,8 @@ internal fun HadithLibraryScreen(
                 arabic = "عَجَبًا لِأَمْرِ الْمُؤْمِنِ، إِنَّ أَمْرَهُ كُلَّهُ خَيْرٌ، وَلَيْسَ ذَاكَ لِأَحَدٍ إِلَّا لِلْمُؤْمِنِ",
                 english = "How wonderful is the affair of the believer, for all his affairs are good! If good happens, he gives thanks, and if hardship strikes, he shows patience...",
                 urdu = "مومن کا معاملہ بھی خوب ہے! اس کے ہر معاملے میں خیر ہے؛ اگر اسے خوشی ملے تو وہ شکر کرتا ہے، اور اگر کوئی تکلیف پہنچے تو صبر کرتا ہے...",
-                topic = "Patience & Gratitude"
+                topic = "Patience & Gratitude",
+                referenceUrl = "https://sunnah.com/riyadussalihin/introduction/27"
             )
         )
     }
@@ -143,7 +152,7 @@ internal fun HadithLibraryScreen(
             fontWeight = FontWeight.Bold
         )
         Text(
-            if (appLanguage == AppLanguage.URDU) "مستند احادیثِ نبوی ﷺ کا ذخیرہ" else "Authentic Hadith Library",
+            if (appLanguage == AppLanguage.URDU) "منتخب احادیث مع حوالہ جات" else "Selected Hadith References",
             color = Cream,
             fontSize = 22.sp,
             fontWeight = FontWeight.Bold,
@@ -262,6 +271,23 @@ internal fun HadithLibraryScreen(
                                 .padding(horizontal = 10.dp, vertical = 4.dp)
                         ) {
                             Text("Topic: ${item.topic}", color = Muted, fontSize = 10.sp)
+                        }
+                        if (item.referenceUrl.isNotBlank()) {
+                            TextButton(
+                                onClick = {
+                                    try {
+                                        ctx.startActivity(Intent(Intent.ACTION_VIEW, Uri.parse(item.referenceUrl)))
+                                    } catch (_: Exception) {
+                                        Toast.makeText(ctx, "Unable to open the source reference.", Toast.LENGTH_SHORT).show()
+                                    }
+                                }
+                            ) {
+                                Text(
+                                    if (appLanguage == AppLanguage.URDU) "اصل حوالہ دیکھیں" else "Open source reference",
+                                    color = Gold,
+                                    fontSize = 12.sp
+                                )
+                            }
                         }
                     }
                 }
