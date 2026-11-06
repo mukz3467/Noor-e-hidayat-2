@@ -7,6 +7,7 @@ import android.location.Location
 import android.location.LocationListener
 import android.location.LocationManager
 import android.os.Build
+import android.os.Looper
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.animation.AnimatedVisibility
@@ -171,17 +172,50 @@ internal fun PrayerTimesScreen(appLanguage: AppLanguage = AppLanguage.ENGLISH) {
     fun locate() {
         if (!permitted(ctx)) return
         try {
-            lm.getProviders(true).forEach { p ->
+            val providers = lm.getProviders(true)
+            val now = System.currentTimeMillis()
+            var bestLocation: Location? = null
+            providers.forEach { provider ->
                 try {
-                    val x = lm.getLastKnownLocation(p)
-                    if (x != null && (loc == null || x.time > (loc?.time ?: 0L))) loc = x
+                    val candidate = lm.getLastKnownLocation(provider)
+                    val ageMs = candidate?.let { now - it.time } ?: Long.MAX_VALUE
+                    if (candidate != null && ageMs in 0..21_600_000L &&
+                        (bestLocation == null || candidate.time > bestLocation!!.time)) {
+                        bestLocation = candidate
+                    }
                 } catch (_: SecurityException) {}
             }
-            if (loc == null) {
-                error = "No recent device location is available. Enable location services and retry."
+            if (bestLocation != null) {
+                loc = bestLocation
+                error = ""
+                return
             }
+            val provider = when {
+                LocationManager.NETWORK_PROVIDER in providers -> LocationManager.NETWORK_PROVIDER
+                LocationManager.GPS_PROVIDER in providers -> LocationManager.GPS_PROVIDER
+                else -> providers.firstOrNull()
+            }
+            if (provider == null) {
+                error = "No location provider is enabled. Turn on device location and retry."
+                return
+            }
+            error = "Waiting for a fresh device location…"
+            lm.requestSingleUpdate(provider, object : LocationListener {
+                override fun onLocationChanged(location: Location) {
+                    loc = location
+                    error = ""
+                }
+                @Deprecated("Deprecated in Android")
+                override fun onStatusChanged(provider: String?, status: Int, extras: android.os.Bundle?) = Unit
+                override fun onProviderEnabled(provider: String) = Unit
+                override fun onProviderDisabled(provider: String) {
+                    error = "Location provider was disabled. Turn on location and retry."
+                }
+            }, Looper.getMainLooper())
+        } catch (_: SecurityException) {
+            error = "Location permission is required for local prayer times."
         } catch (_: Exception) {
-            error = "Unable to read device location."
+            error = "Unable to acquire a fresh device location. Please retry."
         }
     }
 
@@ -369,7 +403,8 @@ internal fun PrayerTimesScreen(appLanguage: AppLanguage = AppLanguage.ENGLISH) {
             // Location refresh
             OutlinedButton(
                 onClick = {
-                    launcher.launch(arrayOf(Manifest.permission.ACCESS_FINE_LOCATION, Manifest.permission.ACCESS_COARSE_LOCATION))
+                    if (permitted(ctx)) locate()
+                    else launcher.launch(arrayOf(Manifest.permission.ACCESS_FINE_LOCATION, Manifest.permission.ACCESS_COARSE_LOCATION))
                 },
                 colors = ButtonDefaults.outlinedButtonColors(contentColor = Gold),
                 border = BorderStroke(1.dp, Border),
