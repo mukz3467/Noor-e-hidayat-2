@@ -80,9 +80,9 @@ internal fun OfflineQuranDownloadScreen(
                     Spacer(Modifier.height(8.dp))
                     Text(
                         if (isUrdu)
-                            "یہ سہولت تمام سورتوں کا عربی متن اور مکمل اردو و انگریزی آیت بہ آیت ترجمہ فون میں محفوظ کرتی ہے۔ ڈاؤن لوڈ مکمل ہونے کے بعد یہ مواد انٹرنیٹ کے بغیر دستیاب ہوگا۔"
+                            "یہ سہولت تمام سورتوں کا عربی متن اور مکمل اردو، انگریزی اور ہندی آیت بہ آیت ترجمہ فون میں محفوظ کرتی ہے۔ ڈاؤن لوڈ مکمل ہونے کے بعد یہ مواد انٹرنیٹ کے بغیر دستیاب ہوگا۔"
                         else
-                            "This saves the Arabic text and complete Urdu and English verse translations for all 114 Surahs on this device. Once the download finishes, the cached content can be read without an internet connection.",
+                            "This saves the Arabic text and complete English, Urdu and Hindi verse translations for all 114 Surahs on this device. Once the download finishes, the cached content can be read without an internet connection.",
                         color = Cream,
                         fontSize = 13.sp,
                         lineHeight = 21.sp
