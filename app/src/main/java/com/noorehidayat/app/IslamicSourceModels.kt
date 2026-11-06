@@ -119,7 +119,7 @@ data class HadithCollectionEdition(
     val reviewStatus: ContentReviewStatus
 ) {
     fun isDisplayable(): Boolean =
-        collectionId in setOf("sahih_al_bukhari", "sahih_muslim") &&
+        collectionId in setOf("sahih_al_bukhari", "sahih_al_muslim") &&
             collectionTitle.isNotBlank() &&
             bookId.isNotBlank() &&
             bookTitle.isNotBlank() &&
