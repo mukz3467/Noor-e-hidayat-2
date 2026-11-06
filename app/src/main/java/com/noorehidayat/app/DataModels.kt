@@ -175,7 +175,8 @@ data class HadithItem(
     val english: String,
     val urdu: String,
     val topic: String,
-    val referenceUrl: String = ""
+    val referenceUrl: String = "",
+    val hindi: String = ""
 )
 
 // --- Feature 4: Hijri Calendar & Moon Models ---
