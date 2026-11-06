@@ -129,3 +129,74 @@ data class HadithCollectionEdition(
             sourceLocator.isNotBlank() &&
             reviewStatus == ContentReviewStatus.VERIFIED_FOR_RELEASE
 }
+
+
+/**
+ * A scholarly work is not a translation edition. Keep author, translator, language,
+ * and publication rights separate so the app never attributes a translator's wording
+ * to the original mufassir.
+ */
+data class TafsirScholarWork(
+    val workId: String,
+    val workTitle: String,
+    val scholarName: String,
+    val language: ContentLanguage,
+    val translatorName: String?,
+    val publisherOrDigitizer: String,
+    val sourceUrl: String,
+    val editionId: String,
+    val licenseName: String,
+    val redistributionPermissionEvidence: String?,
+    val reviewStatus: ContentReviewStatus
+) {
+    fun canShipOffline(): Boolean =
+        workId.isNotBlank() &&
+            workTitle.isNotBlank() &&
+            scholarName.isNotBlank() &&
+            publisherOrDigitizer.isNotBlank() &&
+            sourceUrl.startsWith("https://") &&
+            editionId.isNotBlank() &&
+            licenseName.isNotBlank() &&
+            !redistributionPermissionEvidence.isNullOrBlank() &&
+            reviewStatus == ContentReviewStatus.VERIFIED_FOR_RELEASE
+}
+
+/** Translation metadata is attached to the translated edition, not inferred from its author. */
+data class HadithTranslationEdition(
+    val editionId: String,
+    val language: ContentLanguage,
+    val translatorName: String,
+    val publisherOrDigitizer: String,
+    val sourceUrl: String,
+    val licenseName: String,
+    val redistributionPermissionEvidence: String?,
+    val reviewStatus: ContentReviewStatus
+) {
+    fun canShipOffline(): Boolean =
+        editionId.isNotBlank() &&
+            translatorName.isNotBlank() &&
+            publisherOrDigitizer.isNotBlank() &&
+            sourceUrl.startsWith("https://") &&
+            licenseName.isNotBlank() &&
+            !redistributionPermissionEvidence.isNullOrBlank() &&
+            reviewStatus == ContentReviewStatus.VERIFIED_FOR_RELEASE
+}
+
+/**
+ * A release manifest makes missing language coverage explicit. A scholar's original
+ * Arabic work must not be presented as an Urdu, English, or Hindi translation.
+ */
+data class QuranCorpusCoverage(
+    val totalSurahs: Int,
+    val totalAyahs: Int,
+    val arabicAyahs: Int,
+    val translationsByLanguage: Map<ContentLanguage, Int>,
+    val tafsirEntriesByEdition: Map<String, Int>,
+    val approvedEditions: Set<String>
+) {
+    fun hasCompleteArabicQuran(): Boolean =
+        totalSurahs == 114 && totalAyahs == 6236 && arabicAyahs == 6236
+
+    fun hasCompleteTranslation(language: ContentLanguage): Boolean =
+        translationsByLanguage[language] == totalAyahs
+}
