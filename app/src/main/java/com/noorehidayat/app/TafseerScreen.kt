@@ -263,7 +263,7 @@ internal fun TafseerScreen(
                             color = textPrimary,
                             fontSize = 14.sp,
                             lineHeight = 23.sp,
-                            textAlign = if (selectedEdition?.lang in setOf("ur", "ar")) TextAlign.End else TextAlign.Start,
+                            textAlign = if (selectedEdition?.lang == "ur" || selectedEdition?.lang == "ar") TextAlign.End else TextAlign.Start,
                             modifier = Modifier.fillMaxWidth().padding(top = 7.dp)
                         )
                     }
