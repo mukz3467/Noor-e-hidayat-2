@@ -66,8 +66,10 @@ internal fun localized(lang: String, english: String, urdu: String): String =
     if (lang == "اردو") urdu else english
 
 internal fun resolveBackPage(page: String, mediaParentPage: String, videoParentPage: String): String = when (page) {
-    "Reader", "Recitations", "Live", "Lectures", "Learning", "Duas", "Quiz", "Qibla", "Tafseer", "Prayer Times", "Favourites",
-    "Tasbeeh", "Hisn al-Muslim", "Hadith", "Hijri Calendar", "Zakat", "Khatam Planner", "Social Card", "Ramadan Companion", "Theme Settings" -> "Home"
+    "Tafseer", "Offline Quran", "Daily Reminder", "Theme Settings" -> "More"
+    "Reader", "Recitations", "Live", "Lectures", "Learning", "Duas", "Quiz", "Qibla", "Prayer Times", "Favourites",
+    "Tasbeeh", "Hisn al-Muslim", "Hadith", "Hijri Calendar", "Zakat", "Khatam Planner", "Social Card", "Ramadan Companion" -> "Home"
+    "Video Player" -> videoParentPage
     else -> "Home"
 }
 
@@ -172,7 +174,7 @@ private fun NoorApp() {
         if (isTheaterMode) {
             isTheaterMode = false
         } else {
-            currentPage = "Home"
+            currentPage = resolveBackPage(currentPage, "Home", "Home")
         }
     }
 
