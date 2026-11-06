@@ -39,15 +39,15 @@ internal fun HadithLibraryScreen(
     var searchQuery by remember { mutableStateOf("") }
     var selectedBook by remember { mutableStateOf("All") }
 
-    // Show only collections actually present in the verified local dataset.
-    val books = remember(hadiths) {
-        listOf("All") + hadiths.map { it.book }.distinct().sorted()
-    }
-
     // No hand-written sample narrations: only source-backed records are displayed.
     val sampleHadiths = emptyList<HadithItem>()
 
     var hadiths by remember { mutableStateOf(sampleHadiths.filterNot { it.book == "Sahih Muslim" }) }
+
+    // Show only collections actually present in the verified local dataset.
+    val books = remember(hadiths) {
+        listOf("All") + hadiths.map { it.book }.distinct().sorted()
+    }
 
     LaunchedEffect(appLanguage) {
         val languageRecords = withContext(Dispatchers.IO) {
