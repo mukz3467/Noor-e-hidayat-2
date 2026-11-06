@@ -142,7 +142,7 @@ object QuranDataService {
     )
 
     suspend fun getSurahBatch(context: Context, surahNumber: Int): List<Ayah> = withContext(Dispatchers.IO) {
-        val expectedAyahCount = allSurahs.firstOrNull { it.number == surahNumber }?.ayahCount
+        val expectedAyahCount = allSurahs.firstOrNull { it.number == surahNumber }?.ayahs
             ?: throw IllegalArgumentException("Unknown Surah number: $surahNumber")
         memCache[surahNumber]?.takeIf { it.size == expectedAyahCount }?.let { return@withContext it }
 
