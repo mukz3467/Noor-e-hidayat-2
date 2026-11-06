@@ -152,7 +152,7 @@ internal fun HadithLibraryScreen(
                     hadithNumber = record.id,
                     narrator = record.narrator.orEmpty(),
                     arabic = record.arabicText,
-                    english = if (appLanguage == AppLanguage.ENGLISH) record.translation.orEmpty() else "",
+                    english = if (appLanguage == AppLanguage.URDU) "" else record.translation.orEmpty(),
                     urdu = if (appLanguage == AppLanguage.URDU) record.translation.orEmpty() else "",
                     topic = record.bookTitle,
                     referenceUrl = ""
