@@ -45,8 +45,28 @@ internal object IslamicContentImporter {
         val quran = root.getJSONArray("quranAyahs")
         validateQuran(quran, editionById)
 
+        val translationEditions = editionById.values.filter { it.optString("contentType") == "translation" }
+        require(translationEditions.size >= 5) {
+            "Release must contain at least five complete, scholar-attributed Quran translation editions."
+        }
+        require(setOf("en", "ur", "hi").all { language ->
+            translationEditions.any { it.optString("languageCode") == language }
+        }) {
+            "Quran translation editions must cover English, Urdu and Hindi; Arabic is supplied as the original Quran text."
+        }
+
         val translations = root.optJSONArray("translations") ?: JSONArray()
         validateCompleteEditionRecords(translations, editionById, "translation")
+
+        val tafsirEditions = editionById.values.filter { it.optString("contentType") == "tafsir" }
+        require(tafsirEditions.map { it.optString("scholarName") }.distinct().size >= 5) {
+            "Release must contain tafsir from at least five distinct named scholars."
+        }
+        require(setOf("ar", "en", "ur", "hi").all { language ->
+            tafsirEditions.any { it.optString("languageCode") == language }
+        }) {
+            "Tafsir editions must provide verified Arabic, English, Urdu and Hindi coverage."
+        }
 
         val tafsir = root.optJSONArray("tafsirEntries") ?: JSONArray()
         validateCompleteEditionRecords(tafsir, editionById, "tafsir")
@@ -113,6 +133,7 @@ internal object IslamicContentImporter {
         }
         val surahCounts = mutableMapOf<Int, Int>()
         val seen = mutableSetOf<String>()
+        val quranEditionIds = mutableSetOf<String>()
         for (index in 0 until quran.length()) {
             val row = quran.getJSONObject(index)
             val surah = row.optInt("surahNumber")
@@ -124,8 +145,10 @@ internal object IslamicContentImporter {
             val edition = editions[row.required("editionId")]
                 ?: error("Quran ayah '$key' refers to an unknown edition.")
             require(edition.optString("contentType") == "quran_text") { "Quran ayah '$key' must use a quran_text edition." }
+            quranEditionIds += row.required("editionId")
             surahCounts[surah] = (surahCounts[surah] ?: 0) + 1
         }
+        require(quranEditionIds.size == 1) { "The Arabic Quran text must come from one pinned source edition." }
         require(surahCounts.size == 114) { "Quran release must include all 114 Surahs." }
         QuranDataService.allSurahs.forEach { surah ->
             require(surahCounts[surah.number] == surah.ayahs) {
