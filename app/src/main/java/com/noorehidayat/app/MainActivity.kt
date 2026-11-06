@@ -1225,26 +1225,81 @@ private fun QuranReaderScreen(
                             AppLanguage.ENGLISH -> ayah.englishTranslation
                         }
 
-                        Text(
-                            text = translationText,
-                            color = Cream,
-                            fontSize = 14.sp,
-                            lineHeight = 22.sp,
-                            textAlign = if (appLanguage.isRtl) TextAlign.End else TextAlign.Start,
-                            modifier = Modifier.fillMaxWidth()
-                        )
-
-                        // Secondary English Translation if primary is Urdu/Arabic
-                        if (appLanguage != AppLanguage.ENGLISH && ayah.englishTranslation.isNotBlank()) {
+                        if (ayah.translationEditions.isEmpty()) {
                             Text(
-                                text = ayah.englishTranslation,
-                                color = Muted,
-                                fontSize = 12.sp,
-                                lineHeight = 18.sp,
-                                modifier = Modifier
-                                    .fillMaxWidth()
-                                    .padding(top = 6.dp)
+                                text = translationText,
+                                color = Cream,
+                                fontSize = 14.sp,
+                                lineHeight = 22.sp,
+                                textAlign = if (appLanguage.isRtl) TextAlign.End else TextAlign.Start,
+                                modifier = Modifier.fillMaxWidth()
                             )
+
+                            // Secondary English Translation if primary is Urdu/Arabic
+                            if (appLanguage != AppLanguage.ENGLISH && ayah.englishTranslation.isNotBlank()) {
+                                Text(
+                                    text = ayah.englishTranslation,
+                                    color = Muted,
+                                    fontSize = 12.sp,
+                                    lineHeight = 18.sp,
+                                    modifier = Modifier
+                                        .fillMaxWidth()
+                                        .padding(top = 6.dp)
+                                )
+                            }
+                        } else {
+                            ayah.translationEditions.forEach { edition ->
+                                Column(Modifier.fillMaxWidth().padding(top = 7.dp)) {
+                                    Text(
+                                        edition.workTitle + " · " + edition.scholarName + " · " + edition.languageCode.uppercase(),
+                                        color = Gold,
+                                        fontSize = 10.sp,
+                                        fontWeight = FontWeight.Bold
+                                    )
+                                    Text(
+                                        edition.text,
+                                        color = Cream,
+                                        fontSize = 13.sp,
+                                        lineHeight = 21.sp,
+                                        textAlign = if (edition.languageCode in setOf("ar", "ur")) TextAlign.End else TextAlign.Start,
+                                        modifier = Modifier.fillMaxWidth().padding(top = 2.dp)
+                                    )
+                                }
+                            }
+                        }
+
+                        if (ayah.tafsirEntries.isNotEmpty()) {
+                            Divider(color = Border, modifier = Modifier.padding(vertical = 8.dp))
+                            Text(
+                                if (appLanguage == AppLanguage.URDU) "مستند تفاسیر" else "VERIFIED TAFSIR EDITIONS",
+                                color = Gold,
+                                fontSize = 10.sp,
+                                fontWeight = FontWeight.Bold
+                            )
+                            ayah.tafsirEntries.forEach { tafsir ->
+                                Column(Modifier.fillMaxWidth().padding(top = 7.dp)) {
+                                    Text(
+                                        tafsir.workTitle + " · " + tafsir.scholarName + " · " + tafsir.languageCode.uppercase(),
+                                        color = Gold,
+                                        fontSize = 10.sp,
+                                        fontWeight = FontWeight.Bold
+                                    )
+                                    Text(
+                                        tafsir.text,
+                                        color = Cream,
+                                        fontSize = 12.sp,
+                                        lineHeight = 19.sp,
+                                        textAlign = if (tafsir.languageCode in setOf("ar", "ur")) TextAlign.End else TextAlign.Start,
+                                        modifier = Modifier.fillMaxWidth().padding(top = 2.dp)
+                                    )
+                                    Text(
+                                        tafsir.sourceReference,
+                                        color = Muted,
+                                        fontSize = 9.sp,
+                                        modifier = Modifier.padding(top = 2.dp)
+                                    )
+                                }
+                            }
                         }
 
                         // Word-by-Word Breakdown Cards
