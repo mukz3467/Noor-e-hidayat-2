@@ -37,8 +37,12 @@
 - No corpus is approved by this document. A candidate source is not an authenticity or licensing approval.
 
 ### Sahih al-Bukhari and Sahih Muslim
-- The public GitHub project Jaguar16/open-hadith-data is a candidate for structured data discovery, not an approved final content source. Its own documentation warns that the extraction may be incomplete or incorrect. The dataset license for structured data does not automatically clear third-party English translations contained in the export.
-- Before bundling any translation, verify its copyright/redistribution terms. Preserve collection/book/chapter/numbering and source attribution. Cross-check completeness against a trusted edition.
+- **Sahih Muslim Arabic is now bundled offline** in `app/src/main/assets/islamic-library/sahih-muslim-ar/`. The source export reports 7,563 numbered rows; 7,360 contain Arabic text and 203 are empty placeholders. Only the 7,360 non-empty narrations are bundled, with upstream numbering and book-number metadata preserved and no renumbering.
+- Source: i-muslim bulk Arabic export, which identifies the classical Arabic edition as public-domain text and records its upstream source as `fawazahmed0:ara-muslim`. See https://i-muslim.com/id/downloads and https://i-muslim.com/api/v1/translations/hadith/muslim/ar.
+- The app loader checks all 15 asset parts, rejects duplicate source numbers and blank narrations, and requires exactly 7,360 records before displaying the local corpus.
+- The Arabic source export does not provide licensed English, Urdu or Hindi translations. Those translations remain explicitly unavailable; the app must not generate them or copy the mirrored proprietary translations.
+- Book titles are not included in the imported i-muslim response; the UI therefore labels them only by source book number where available. It does not invent book titles.
+- Sahih al-Bukhari remains incomplete in the offline bundle. A full Bukhari import and any non-Arabic Hadith translation still require a separately verified edition and redistribution rights.
 - Do not infer that an entire collection is present from the presence of some records or a book count in a README.
 
 ## Proposed local data model
@@ -104,7 +108,7 @@ References:
 
 ### Release decision
 
-The current importer/database/UI work remains infrastructure only. No placeholder corpus, machine-translated religious text, scraped third-party translation, or guessed attribution may be used to satisfy a count requirement. The next data import may proceed only for an individually approved, version-pinned source whose exact text, coverage, numbering, license and required attribution have been checked. Where no verified text exists in a language, the app must show that language as unavailable rather than substitute English, Urdu, Hindi or Arabic silently.
+The offline Arabic Sahih Muslim corpus is attached as described above. The broader Quran/translation/tafsir/Bukhari release remains incomplete. No placeholder corpus, machine-translated religious text, scraped third-party translation, or guessed attribution may be used to satisfy a count requirement. Every further import must use an individually approved, version-pinned source whose exact text, coverage, numbering, license and required attribution have been checked. Where no verified text exists in a language, the app must show that language as unavailable rather than substitute English, Urdu, Hindi or Arabic silently.
 
 ## Neutral Islamic editorial standard (user requirement)
 
