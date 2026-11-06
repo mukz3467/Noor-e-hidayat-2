@@ -25,7 +25,24 @@ internal object MediaAssetManager {
     private fun enqueueIfMissing(context: Context, manager: DownloadManager, destination: File, url: String, key: String) {
         val prefs = context.getSharedPreferences(PREFS, Context.MODE_PRIVATE)
         if (destination.exists() && destination.length() > 0L) return
-        if (prefs.getLong(key, -1L) >= 0L) return
+        val previousId = prefs.getLong(key, -1L)
+        if (previousId >= 0L) {
+            val cursor = manager.query(DownloadManager.Query().setFilterById(previousId))
+            val activeOrSuccessful = cursor?.use {
+                if (!it.moveToFirst()) false
+                else {
+                    val column = it.getColumnIndex(DownloadManager.COLUMN_STATUS)
+                    column >= 0 && it.getInt(column) in setOf(
+                        DownloadManager.STATUS_PENDING,
+                        DownloadManager.STATUS_RUNNING,
+                        DownloadManager.STATUS_PAUSED,
+                        DownloadManager.STATUS_SUCCESSFUL
+                    )
+                }
+            } ?: false
+            if (activeOrSuccessful) return
+            prefs.edit().remove(key).apply()
+        }
         val request = DownloadManager.Request(Uri.parse(url))
             .setTitle(if (key.contains("adhan")) "Adhan audio" else "Quran recitation · Al-Fatiha")
             .setDescription("Downloading starter audio for offline use")
