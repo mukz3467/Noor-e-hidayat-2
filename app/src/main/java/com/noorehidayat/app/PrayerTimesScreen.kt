@@ -447,6 +447,15 @@ internal fun PrayerTimesScreen(appLanguage: AppLanguage = AppLanguage.ENGLISH) {
                 )
             }
         }
+        Text(
+            if (appLanguage == AppLanguage.URDU)
+                "نوٹ: Android کی بیٹری سیونگ پابندیاں نوٹیفکیشن میں تاخیر کر سکتی ہیں۔"
+            else
+                "Note: Android battery restrictions may delay notifications; exact-alarm access is not requested.",
+            color = Muted,
+            fontSize = 10.sp,
+            lineHeight = 15.sp
+        )
         if (error.isNotBlank()) {
             Text(error, color = Gold, fontSize = 11.sp, lineHeight = 16.sp)
         }
