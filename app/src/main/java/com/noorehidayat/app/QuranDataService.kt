@@ -242,32 +242,4 @@ object QuranDataService {
         return result
     }
 
-    private fun generateWords(arabic: String): List<WordMeaning> {
-        val tokens = arabic.split(" ").filter { it.isNotBlank() }
-        return tokens.take(4).map { token ->
-            WordMeaning(
-                arabic = token,
-                transliteration = token,
-                english = "Word breakdown",
-                urdu = "لفظی مفہوم"
-            )
-        }
-    }
-
-    private fun getFallbackAyahs(surahNumber: Int): List<Ayah> {
-        if (surahNumber == 1) {
-            return listOf(
-                Ayah(1, "بِسْمِ ٱللَّهِ ٱلرَّحْمَـٰنِ ٱلرَّحِيمِ", "In the name of Allah, the Entirely Merciful, the Especially Merciful.", "شروع اللہ کا نام لے کر جو بڑا مہربان نہایت رحم والا ہے", "بدأت قراءتي باسم الله مستعينا به", "अल्लाह के नाम से जो रहमान और रहीम है।", listOf(WordMeaning("بِسْمِ", "Bismi", "In name", "نام سے"), WordMeaning("ٱللَّهِ", "Allahi", "of Allah", "اللہ کے")), shanENuzulMap[1] ?: ""),
-                Ayah(2, "ٱلْحَمْدُ لِلَّهِ رَبِّ ٱلْعَـٰلَمِينَ", "[All] praise is [due] to Allah, Lord of the worlds -", "سب طرح کی تعریف خدا ہی کو (سزاوار) ہے جو تمام مخلوقات کا پروردگار ہے", "الثناء الكامل والشكر الخالص لله وحده", "सब प्रशंसा अल्लाह ही के लिए है जो सारे संसार का रब है।", listOf(WordMeaning("ٱلْحَمْدُ", "Al-Hamdu", "All praise", "سب تعریف"), WordMeaning("لِلَّهِ", "Lillahi", "to Allah", "اللہ کے لیے")), ""),
-                Ayah(3, "ٱلرَّحْمَـٰنِ ٱلرَّحِيمِ", "The Entirely Merciful, the Especially Merciful,", "بڑا مہربان نہایت رحم والا", "الرحمن الذي وسعت رحمته كل شيء", "बड़ा मेहरबान, निहायत रहम वाला।", listOf(WordMeaning("ٱلرَّحْمَـٰنِ", "Ar-Rahmani", "The Beneficent", "نہایت مہربان")), ""),
-                Ayah(4, "مَـٰلِكِ يَوْمِ ٱلدِّينِ", "Sovereign of the Day of Recompense.", "انصاف کے دن کا حاکم", "المتصرف وحده في يوم الحساب والجزاء", "बदले के दिन का मालिक।", listOf(WordMeaning("مَـٰلِكِ", "Maliki", "Master", "مالک")), ""),
-                Ayah(5, "إِيَّاكَ نَعْبُدُ وَإِيَّاكَ نَسْتَعِينُ", "It is You we worship and You we ask for help.", "(اے پروردگار) ہم تیری ہی عبادت کرتے ہیں اور تجھ ہی سے مدد مانگتے ہیں", "نخصك وحدك بالعبادة ونستعين بك وحدك", "हम तेरी ही इबादत करते हैं और तुझ ही से मदद चाहते हैं।", listOf(WordMeaning("إِيَّاكَ", "Iyyaka", "You alone", "تجھ ہی کو")), ""),
-                Ayah(6, "ٱهْدِنَا ٱلصِّرَٰطَ ٱلْمُسْتَقِيمَ", "Guide us to the straight path -", "ہم کو سیدھے رستے چلا", "وفقنا وأرشدنا إلى الطريق القويم", "हमें सीधे रास्ते पर चला।", listOf(WordMeaning("ٱهْدِنَا", "Ihdina", "Guide us", "ہدایت دے")), ""),
-                Ayah(7, "صِرَٰطَ ٱلَّذِينَ أَنْعَمْتَ عَلَيْهِمْ غَيْرِ ٱلْمَغْضُوبِ عَلَيْهِمْ وَلَا ٱلضَّآلِّينَ", "The path of those upon whom You have bestowed favor, not of those who have evoked [Your] anger or of those who are astray.", "ان لوگوں کے رستے جن پر تو اپنا فضل وکرم کرتا رہا نہ ان کے جن پر غصہ ہوتا رہا اور نہ گمراہوں کے", "طريق الذين تفضلت عليهم بالهداية", "उनका रास्ता जिन पर तूने इनाम किया, न उनका जिन पर क्रोध हुआ और न बहके हुओं का।", listOf(WordMeaning("صِرَٰطَ", "Sirata", "The path", "راستہ")), "")
-            )
-        }
-        return listOf(
-            Ayah(1, "بِسْمِ ٱللَّهِ ٱلرَّحْمَـٰنِ ٱلرَّحِيمِ", "In the name of Allah, the Entirely Merciful, the Especially Merciful.", "اللہ کے نام سے جو نہایت مہربان اور رحم فرمانے والا ہے", "بسم الله الرحمن الرحيم", "अल्लाह के नाम से जो रहमान और रहीम है।", emptyList(), shanENuzulMap[surahNumber] ?: "")
-        )
-    }
 }
