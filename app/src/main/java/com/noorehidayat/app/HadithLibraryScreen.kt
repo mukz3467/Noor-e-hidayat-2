@@ -39,8 +39,9 @@ internal fun HadithLibraryScreen(
     var searchQuery by remember { mutableStateOf("") }
     var selectedBook by remember { mutableStateOf("All") }
 
-    val books = remember {
-        listOf("All", "Sahih al-Bukhari", "Sahih Muslim", "Jami` at-Tirmidhi", "40 Hadith Nawawi", "Riyad as-Salihin")
+    // Show only collections actually present in the verified local dataset.
+    val books = remember(hadiths) {
+        listOf("All") + hadiths.map { it.book }.distinct().sorted()
     }
 
     // No hand-written sample narrations: only source-backed records are displayed.
@@ -189,7 +190,8 @@ internal fun HadithLibraryScreen(
                             Row {
                                 IconButton(onClick = {
                                     val cm = ctx.getSystemService(Context.CLIPBOARD_SERVICE) as ClipboardManager
-                                    val clip = ClipData.newPlainText(item.book, "${item.arabic}\n${item.english}\n${item.urdu}\n${item.hindi}\n[${item.book} - ${item.hadithNumber}]")
+                                    val clipText = listOf(item.arabic, item.english, item.urdu, item.hindi, "[${item.book} - ${item.hadithNumber}]").filter { it.isNotBlank() }.joinToString("\n\n")
+                                    val clip = ClipData.newPlainText(item.book, clipText)
                                     cm.setPrimaryClip(clip)
                                     Toast.makeText(ctx, "Hadith copied to clipboard", Toast.LENGTH_SHORT).show()
                                 }) {
@@ -219,8 +221,10 @@ internal fun HadithLibraryScreen(
                                 .padding(vertical = 10.dp)
                         )
 
-                        Text("Narrated by: ${item.narrator}", color = Gold, fontSize = 11.sp, fontStyle = androidx.compose.ui.text.font.FontStyle.Italic)
-                        Spacer(Modifier.height(6.dp))
+                        if (item.narrator.isNotBlank()) {
+                            Text("Narrated by: ${item.narrator}", color = Gold, fontSize = 11.sp, fontStyle = androidx.compose.ui.text.font.FontStyle.Italic)
+                            Spacer(Modifier.height(6.dp))
+                        }
 
                         listOf(
                             Triple("English", item.english, false),
