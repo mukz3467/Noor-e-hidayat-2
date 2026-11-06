@@ -33,17 +33,21 @@ internal fun ZakatCalculatorScreen(appLanguage: AppLanguage = AppLanguage.ENGLIS
 
     val currencies = remember {
         listOf(
-            CurrencyRate("PKR", "Rs", 23500.0, 310.0), // ~23,500/g Gold, 310/g Silver
-            CurrencyRate("INR", "₹", 7200.0, 95.0),
-            CurrencyRate("USD", "$", 85.0, 1.10),
-            CurrencyRate("SAR", "SAR", 320.0, 4.2),
-            CurrencyRate("AED", "AED", 312.0, 4.1),
-            CurrencyRate("EUR", "€", 78.0, 1.05),
-            CurrencyRate("GBP", "£", 67.0, 0.90)
+            CurrencyRate("PKR", "Rs", 0.0, 0.0),
+            CurrencyRate("INR", "₹", 0.0, 0.0),
+            CurrencyRate("USD", "$", 0.0, 0.0),
+            CurrencyRate("SAR", "SAR", 0.0, 0.0),
+            CurrencyRate("AED", "AED", 0.0, 0.0),
+            CurrencyRate("EUR", "€", 0.0, 0.0),
+            CurrencyRate("GBP", "£", 0.0, 0.0)
         )
     }
 
     var selectedCurrency by remember { mutableStateOf(currencies.first()) }
+    var goldRateInput by remember { mutableStateOf("") }
+    var silverRateInput by remember { mutableStateOf("") }
+    val goldRate = goldRateInput.toDoubleOrNull()?.takeIf { it > 0 } ?: 0.0
+    val silverRate = silverRateInput.toDoubleOrNull()?.takeIf { it > 0 } ?: 0.0
 
     // Inputs
     var cashVal by remember { mutableStateOf("") }
@@ -68,18 +72,18 @@ internal fun ZakatCalculatorScreen(appLanguage: AppLanguage = AppLanguage.ENGLIS
     val bills = unpaidBills.toDoubleOrNull() ?: 0.0
 
     // Calculations
-    val goldTotalValue = goldWeight * selectedCurrency.goldGramPrice
-    val silverTotalValue = silverWeight * selectedCurrency.silverGramPrice
+    val goldTotalValue = goldWeight * goldRate
+    val silverTotalValue = silverWeight * silverRate
 
     val totalAssets = cash + goldTotalValue + silverTotalValue + tradeStock + shares + loaned
     val totalLiabilities = debts + bills
     val netZakatableWealth = (totalAssets - totalLiabilities).coerceAtLeast(0.0)
 
     // Silver Nisab (612.36g) is the standard safer threshold for mixed wealth
-    val silverNisabValue = 612.36 * selectedCurrency.silverGramPrice
-    val goldNisabValue = 87.48 * selectedCurrency.goldGramPrice
+    val silverNisabValue = 612.36 * silverRate
+    val goldNisabValue = 87.48 * goldRate
 
-    val isEligible = netZakatableWealth >= silverNisabValue
+    val isEligible = silverRate > 0.0 && netZakatableWealth >= silverNisabValue
     val zakatPayable = if (isEligible) netZakatableWealth * 0.025 else 0.0
 
     Column(
@@ -109,7 +113,11 @@ internal fun ZakatCalculatorScreen(appLanguage: AppLanguage = AppLanguage.ENGLIS
             items(currencies) { curr ->
                 FilterChip(
                     selected = selectedCurrency.code == curr.code,
-                    onClick = { selectedCurrency = curr },
+                    onClick = {
+                        selectedCurrency = curr
+                        goldRateInput = ""
+                        silverRateInput = ""
+                    },
                     label = { Text("${curr.code} (${curr.symbol})", fontSize = 11.sp) },
                     colors = FilterChipDefaults.filterChipColors(
                         selectedContainerColor = Gold,
@@ -137,7 +145,7 @@ internal fun ZakatCalculatorScreen(appLanguage: AppLanguage = AppLanguage.ENGLIS
                     verticalAlignment = Alignment.CenterVertically
                 ) {
                     Text(
-                        if (isEligible) "ZAKAT IS PAYABLE (فرض ہے)" else "BELOW NISAB THRESHOLD",
+                        if (isEligible) "ZAKAT IS PAYABLE (فرض ہے)" else if (silverRate <= 0.0) "ENTER CURRENT SILVER RATE FIRST" else "BELOW NISAB THRESHOLD",
                         color = if (isEligible) EmeraldGlow else Gold,
                         fontSize = 11.sp,
                         fontWeight = FontWeight.Bold
@@ -203,7 +211,7 @@ internal fun ZakatCalculatorScreen(appLanguage: AppLanguage = AppLanguage.ENGLIS
 
             item {
                 ZakatInputField(
-                    label = "Gold (Grams) · Rate: ${selectedCurrency.symbol}${"%,.0f".format(selectedCurrency.goldGramPrice)}/g",
+                    label = "Gold (Grams) · Rate: ${selectedCurrency.symbol}${"%,.2f".format(goldRate)}/g",
                     urduLabel = "سونا (گرام میں)",
                     value = goldGrams,
                     onValueChange = { goldGrams = it },
@@ -213,7 +221,7 @@ internal fun ZakatCalculatorScreen(appLanguage: AppLanguage = AppLanguage.ENGLIS
 
             item {
                 ZakatInputField(
-                    label = "Silver (Grams) · Rate: ${selectedCurrency.symbol}${"%,.0f".format(selectedCurrency.silverGramPrice)}/g",
+                    label = "Silver (Grams) · Rate: ${selectedCurrency.symbol}${"%,.2f".format(silverRate)}/g",
                     urduLabel = "چاندی (گرام میں)",
                     value = silverGrams,
                     onValueChange = { silverGrams = it },
