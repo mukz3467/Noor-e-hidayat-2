@@ -181,15 +181,15 @@ internal fun ZakatCalculatorScreen(appLanguage: AppLanguage = AppLanguage.ENGLIS
                 Card(Modifier.fillMaxWidth(), shape = RoundedCornerShape(16.dp), colors = CardDefaults.cardColors(containerColor = Panel), border = BorderStroke(1.dp, if (eligible) EmeraldGlow else Gold)) {
                     Column(Modifier.padding(15.dp), verticalArrangement = Arrangement.spacedBy(7.dp)) {
                         Text(when { !hasNisab -> if (urdu) "نصاب کا ریٹ درج کریں" else "Enter the selected Nisab metal rate"; eligible -> if (urdu) "نصاب پورا ہے — زکوٰۃ کا تخمینہ" else "Nisab reached — estimated Zakat"; else -> if (urdu) "مال منتخب نصاب سے کم ہے" else "Below selected Nisab" }, color = Gold, fontWeight = FontWeight.Bold, fontSize = 11.sp)
-                        Text("$symbol \${"%,.2f".format(zakat)}", color = Cream, fontSize = 30.sp, fontWeight = FontWeight.Bold)
+                        Text("$symbol ${"%,.2f".format(zakat)}", color = Cream, fontSize = 30.sp, fontWeight = FontWeight.Bold)
                         Text(if (urdu) "2.5% زکوٰۃ (تخمینہ)" else "Estimated Zakat at 2.5%", color = Muted, fontSize = 11.sp)
                         HorizontalDivider(color = Border)
-                        ZakatResultRow(if (urdu) "کل اثاثے" else "Total assets", "$symbol \${"%,.2f".format(assetTotal)}")
+                        ZakatResultRow(if (urdu) "کل اثاثے" else "Total assets", "$symbol ${"%,.2f".format(assetTotal)}")
                         ZakatResultRow(if (urdu) "اختیاری کٹوتیاں" else "Optional deductions", "$symbol ${"%,.2f".format(totalDeductions)}")
-                        ZakatResultRow(if (urdu) "خالص مال" else "Net wealth", "$symbol \${"%,.2f".format(net)}")
-                        ZakatResultRow(if (urdu) "نصاب" else "$nisabType Nisab", if (hasNisab) "$symbol \${"%,.2f".format(nisab)}" else "—")
+                        ZakatResultRow(if (urdu) "خالص مال" else "Net wealth", "$symbol ${"%,.2f".format(net)}")
+                        ZakatResultRow(if (urdu) "نصاب" else "$nisabType Nisab", if (hasNisab) "$symbol ${"%,.2f".format(nisab)}" else "—")
                         OutlinedButton(onClick = {
-                            val summary = "Noor-e-Hidayat Zakat estimate\nCurrency: \${currencies[currencyIndex].first}\nAssets: \${"%.2f".format(assetTotal)}\nOptional deductions: ${"%.2f".format(totalDeductions)}\nNet wealth: \${"%.2f".format(net)}\nNisab: \${"%.2f".format(nisab)}\nEstimated Zakat (2.5%): \${"%.2f".format(zakat)}"
+                            val summary = "Noor-e-Hidayat Zakat estimate\nCurrency: ${currencies[currencyIndex].first}\nAssets: ${"%.2f".format(assetTotal)}\nOptional deductions: ${"%.2f".format(totalDeductions)}\nNet wealth: ${"%.2f".format(net)}\nNisab: ${"%.2f".format(nisab)}\nEstimated Zakat (2.5%): ${"%.2f".format(zakat)}"
                             val clipboard = context.getSystemService(Context.CLIPBOARD_SERVICE) as ClipboardManager
                             clipboard.setPrimaryClip(ClipData.newPlainText("Zakat estimate", summary))
                             Toast.makeText(context, if (urdu) "حساب کاپی ہوگیا" else "Calculation copied", Toast.LENGTH_SHORT).show()
@@ -234,8 +234,8 @@ internal fun ZakatCalculatorScreen(appLanguage: AppLanguage = AppLanguage.ENGLIS
                                 }
                                 if (metal(asset.kind)) {
                                     ZakatNumberField(if (urdu) "وزن (گرام)" else "Weight (grams)", asset.amount) { v -> assets = assets.map { if (it.id == asset.id) it.copy(amount = v) else it } }
-                                    ZakatNumberField("$symbol / gram — \${if (urdu) "آج کی قیمت" else "Today's price per gram"}", asset.rate) { v -> assets = assets.map { if (it.id == asset.id) it.copy(rate = v) else it } }
-                                    Text("$symbol \${"%,.2f".format(n(asset.amount) * n(asset.rate))}", color = Gold, fontSize = 11.sp)
+                                    ZakatNumberField("$symbol / gram — ${if (urdu) "آج کی قیمت" else "Today's price per gram"}", asset.rate) { v -> assets = assets.map { if (it.id == asset.id) it.copy(rate = v) else it } }
+                                    Text("$symbol ${"%,.2f".format(n(asset.amount) * n(asset.rate))}", color = Gold, fontSize = 11.sp)
                                 } else {
                                     ZakatNumberField(if (urdu) "قابلِ زکوٰۃ رقم ($symbol)" else "Zakatable value ($symbol)", asset.amount) { v -> assets = assets.map { if (it.id == asset.id) it.copy(amount = v) else it } }
                                 }
