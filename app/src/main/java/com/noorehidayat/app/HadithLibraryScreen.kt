@@ -152,10 +152,11 @@ internal fun HadithLibraryScreen(
                     hadithNumber = record.id,
                     narrator = record.narrator.orEmpty(),
                     arabic = record.arabicText,
-                    english = if (appLanguage == AppLanguage.URDU) "" else record.translation.orEmpty(),
+                    english = if (appLanguage == AppLanguage.ENGLISH) record.translation.orEmpty() else "",
                     urdu = if (appLanguage == AppLanguage.URDU) record.translation.orEmpty() else "",
                     topic = record.bookTitle,
-                    referenceUrl = ""
+                    referenceUrl = "",
+                    hindi = if (appLanguage == AppLanguage.HINDI) record.translation.orEmpty() else ""
                 )
             }
         }
@@ -164,7 +165,7 @@ internal fun HadithLibraryScreen(
     val filtered = remember(searchQuery, selectedBook, hadiths) {
         hadiths.filter {
             (selectedBook == "All" || it.book == selectedBook) &&
-            (searchQuery.isBlank() || it.english.contains(searchQuery, true) || it.urdu.contains(searchQuery) || it.arabic.contains(searchQuery) || it.topic.contains(searchQuery, true) || it.narrator.contains(searchQuery, true))
+            (searchQuery.isBlank() || it.english.contains(searchQuery, true) || it.urdu.contains(searchQuery) || it.hindi.contains(searchQuery) || it.arabic.contains(searchQuery) || it.topic.contains(searchQuery, true) || it.narrator.contains(searchQuery, true))
         }
     }
 
@@ -288,12 +289,31 @@ internal fun HadithLibraryScreen(
                         Text("Narrated by: ${item.narrator}", color = Gold, fontSize = 11.sp, fontStyle = androidx.compose.ui.text.font.FontStyle.Italic)
                         Spacer(Modifier.height(6.dp))
 
-                        Text(
-                            if (appLanguage == AppLanguage.URDU) item.urdu else item.english,
-                            color = Cream,
-                            fontSize = 13.sp,
-                            lineHeight = 21.sp
-                        )
+                        val selectedTranslation = when (appLanguage) {
+                            AppLanguage.URDU -> item.urdu
+                            AppLanguage.ENGLISH -> item.english
+                            AppLanguage.HINDI -> item.hindi
+                            AppLanguage.ARABIC -> ""
+                        }
+                        if (selectedTranslation.isNotBlank()) {
+                            Text(
+                                selectedTranslation,
+                                color = Cream,
+                                fontSize = 13.sp,
+                                lineHeight = 21.sp
+                            )
+                        } else if (appLanguage != AppLanguage.ARABIC) {
+                            Text(
+                                when (appLanguage) {
+                                    AppLanguage.HINDI -> "Hindi translation is not available for this narration yet."
+                                    AppLanguage.URDU -> "اس روایت کا اردو ترجمہ ابھی دستیاب نہیں۔"
+                                    else -> "English translation is not available for this narration yet."
+                                },
+                                color = Muted,
+                                fontSize = 11.sp,
+                                lineHeight = 17.sp
+                            )
+                        }
 
                         Spacer(Modifier.height(8.dp))
                         Box(
