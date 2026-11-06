@@ -177,6 +177,16 @@ object QuranDataService {
             ?: throw IllegalArgumentException("Unknown Surah number: $surahNumber")
         memCache[surahNumber]?.takeIf { it.size == expectedAyahCount }?.let { return@withContext it }
 
+        // Prefer the verified, bundled SQLite corpus. Keep the existing cache/network
+        // fallback for installations that do not yet contain the approved data package.
+        val localCorpus = runCatching {
+            IslamicContentDatabase.get(context).getQuranAyahs(surahNumber)
+        }.getOrDefault(emptyList())
+        if (localCorpus.size == expectedAyahCount && localCorpus.all { it.arabic.isNotBlank() }) {
+            memCache[surahNumber] = localCorpus
+            return@withContext localCorpus
+        }
+
         val prefs = context.getSharedPreferences("noor_quran_cache", Context.MODE_PRIVATE)
         val cacheKey = "noor_ayahs_v3_$surahNumber"
         val cached = prefs.getString(cacheKey, null)
