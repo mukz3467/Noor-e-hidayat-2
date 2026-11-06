@@ -109,6 +109,61 @@ internal fun PrayerTimesScreen(appLanguage: AppLanguage = AppLanguage.ENGLISH) {
     var method by remember { mutableIntStateOf(prefs.getInt("prayer_method", 1)) }
     var school by remember { mutableIntStateOf(prefs.getInt("prayer_school", 1)) } // 1: Hanafi, 0: Shafi'i
     var methodsExpanded by remember { mutableStateOf(false) }
+    var prayerRemindersEnabled by remember {
+        mutableStateOf(prefs.getBoolean("prayer_reminders_enabled", false))
+    }
+
+    val notificationPermissionLauncher = rememberLauncherForActivityResult(
+        ActivityResultContracts.RequestPermission()
+    ) { granted ->
+        if (granted && loc != null && rows.isNotEmpty()) {
+            prefs.edit()
+                .putBoolean("prayer_reminders_enabled", true)
+                .putString("prayer_latitude", loc!!.latitude.toString())
+                .putString("prayer_longitude", loc!!.longitude.toString())
+                .putInt("prayer_method", method)
+                .putInt("prayer_school", school)
+                .apply()
+            prayerRemindersEnabled = true
+            error = ""
+        } else {
+            error = if (granted) {
+                "Wait until local prayer times are loaded before enabling reminders."
+            } else {
+                "Notification permission is required for prayer reminders."
+            }
+        }
+    }
+
+    fun setPrayerReminders(enabled: Boolean) {
+        if (!enabled) {
+            prayerRemindersEnabled = false
+            prefs.edit().putBoolean("prayer_reminders_enabled", false).apply()
+            PrayerReminderScheduler.cancelAll(ctx)
+            return
+        }
+        val currentLocation = loc
+        if (currentLocation == null || rows.isEmpty()) {
+            error = "Wait until local prayer times are loaded before enabling reminders."
+            return
+        }
+        if (
+            Build.VERSION.SDK_INT >= 33 &&
+            ctx.checkSelfPermission(Manifest.permission.POST_NOTIFICATIONS) != PackageManager.PERMISSION_GRANTED
+        ) {
+            notificationPermissionLauncher.launch(Manifest.permission.POST_NOTIFICATIONS)
+        } else {
+            prefs.edit()
+                .putBoolean("prayer_reminders_enabled", true)
+                .putString("prayer_latitude", currentLocation.latitude.toString())
+                .putString("prayer_longitude", currentLocation.longitude.toString())
+                .putInt("prayer_method", method)
+                .putInt("prayer_school", school)
+                .apply()
+            prayerRemindersEnabled = true
+            error = ""
+        }
+    }
 
     val isAdhanActive by AstronomicalPrayerCalculator.isAdhanPlaying.collectAsState()
     val adhanCountdown by AstronomicalPrayerCalculator.adhanCountdownSeconds.collectAsState()
@@ -173,6 +228,19 @@ internal fun PrayerTimesScreen(appLanguage: AppLanguage = AppLanguage.ENGLISH) {
             error = "Online calculation unavailable. Offline times are estimates; verify with your local mosque."
         } finally {
             loading = false
+        }
+    }
+
+    LaunchedEffect(rows, loc?.latitude, loc?.longitude, method, school, prayerRemindersEnabled) {
+        val currentLocation = loc
+        if (prayerRemindersEnabled && currentLocation != null && rows.isNotEmpty()) {
+            prefs.edit()
+                .putString("prayer_latitude", currentLocation.latitude.toString())
+                .putString("prayer_longitude", currentLocation.longitude.toString())
+                .putInt("prayer_method", method)
+                .putInt("prayer_school", school)
+                .apply()
+            PrayerReminderScheduler.scheduleDay(ctx, rows.associate { it.name to it.time })
         }
     }
 
@@ -315,6 +383,72 @@ internal fun PrayerTimesScreen(appLanguage: AppLanguage = AppLanguage.ENGLISH) {
 
         if (loading) {
             LinearProgressIndicator(Modifier.fillMaxWidth().padding(top = 10.dp), color = Gold)
+        }
+
+        Spacer(Modifier.height(8.dp))
+        Box(Modifier.fillMaxWidth()) {
+            OutlinedButton(
+                onClick = { methodsExpanded = true },
+                modifier = Modifier.fillMaxWidth(),
+                colors = ButtonDefaults.outlinedButtonColors(contentColor = Gold),
+                border = BorderStroke(1.dp, Border),
+                shape = RoundedCornerShape(10.dp)
+            ) {
+                Text(
+                    "Calculation method: ${prayerMethods.firstOrNull { it.first == method }?.second ?: "Select method"}",
+                    fontSize = 12.sp
+                )
+                Spacer(Modifier.width(6.dp))
+                Icon(Icons.Default.ArrowDropDown, contentDescription = null)
+            }
+            DropdownMenu(
+                expanded = methodsExpanded,
+                onDismissRequest = { methodsExpanded = false }
+            ) {
+                prayerMethods.forEach { (methodId, methodName) ->
+                    DropdownMenuItem(
+                        text = { Text(methodName) },
+                        onClick = {
+                            method = methodId
+                            prefs.edit().putInt("prayer_method", methodId).apply()
+                            methodsExpanded = false
+                        }
+                    )
+                }
+            }
+        }
+
+        Card(
+            modifier = Modifier.fillMaxWidth().padding(top = 8.dp),
+            shape = RoundedCornerShape(14.dp),
+            colors = CardDefaults.cardColors(containerColor = Panel),
+            border = BorderStroke(1.dp, Border)
+        ) {
+            Row(
+                modifier = Modifier.fillMaxWidth().padding(14.dp),
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                Column(Modifier.weight(1f)) {
+                    Text(
+                        if (appLanguage == AppLanguage.URDU) "نماز کے اوقات کی یاد دہانی" else "Prayer-time reminders",
+                        color = Cream,
+                        fontWeight = FontWeight.Bold,
+                        fontSize = 14.sp
+                    )
+                    Text(
+                        if (appLanguage == AppLanguage.URDU) "ہر نماز کے وقت نوٹیفکیشن" else "Notify at Fajr, Dhuhr, Asr, Maghrib and Isha",
+                        color = Muted,
+                        fontSize = 11.sp
+                    )
+                }
+                Switch(
+                    checked = prayerRemindersEnabled,
+                    onCheckedChange = { setPrayerReminders(it) }
+                )
+            }
+        }
+        if (error.isNotBlank()) {
+            Text(error, color = Gold, fontSize = 11.sp, lineHeight = 16.sp)
         }
 
         // Prayer Timetable List
