@@ -140,28 +140,39 @@ internal fun HadithLibraryScreen(
                 IslamicContentDatabase.get(ctx).getVerifiedHadiths(languageCode = appLanguage.code)
             }.getOrDefault(emptyList())
         }
-        if (localRecords.isNotEmpty()) {
-            hadiths = localRecords.map { record ->
-                val collectionTitle = if (record.collectionId == "sahih_al_bukhari") {
-                    "Sahih al-Bukhari"
-                } else {
-                    "Sahih Muslim"
-                }
-                HadithItem(
-                    id = record.id,
-                    book = collectionTitle,
-                    chapter = record.chapterTitle ?: record.bookTitle,
-                    hadithNumber = record.id,
-                    narrator = record.narrator.orEmpty(),
-                    arabic = record.arabicText,
-                    english = if (appLanguage == AppLanguage.ENGLISH) record.translation.orEmpty() else "",
-                    urdu = if (appLanguage == AppLanguage.URDU) record.translation.orEmpty() else "",
-                    topic = record.bookTitle,
-                    referenceUrl = "",
-                    hindi = if (appLanguage == AppLanguage.HINDI) record.translation.orEmpty() else ""
-                )
-            }
+        val bundledMuslimArabic = withContext(Dispatchers.IO) {
+            runCatching { SahihMuslimArabicCorpus.load(ctx) }.getOrDefault(emptyList())
         }
+        val databaseItems = localRecords.map { record ->
+            val collectionTitle = if (record.collectionId == "sahih_al_bukhari") {
+                "Sahih al-Bukhari"
+            } else {
+                "Sahih Muslim"
+            }
+            HadithItem(
+                id = record.id,
+                book = collectionTitle,
+                chapter = record.chapterTitle ?: record.bookTitle,
+                hadithNumber = record.id,
+                narrator = record.narrator.orEmpty(),
+                arabic = record.arabicText,
+                english = if (appLanguage == AppLanguage.ENGLISH) record.translation.orEmpty() else "",
+                urdu = if (appLanguage == AppLanguage.URDU) record.translation.orEmpty() else "",
+                topic = record.bookTitle,
+                referenceUrl = "",
+                hindi = if (appLanguage == AppLanguage.HINDI) record.translation.orEmpty() else ""
+            )
+        }
+        val databaseMuslimNumbers = localRecords
+            .filter { it.collectionId == "sahih_al_muslim" }
+            .map { it.id }
+            .toSet()
+        val fallbackItems = if (databaseItems.isNotEmpty()) {
+            databaseItems
+        } else {
+            sampleHadiths.filterNot { it.book == "Sahih Muslim" }
+        }
+        hadiths = fallbackItems + bundledMuslimArabic.filterNot { it.id in databaseMuslimNumbers }
     }
 
     val filtered = remember(searchQuery, selectedBook, hadiths) {
