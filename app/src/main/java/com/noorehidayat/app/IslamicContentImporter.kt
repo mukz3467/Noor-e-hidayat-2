@@ -27,6 +27,18 @@ internal object IslamicContentImporter {
         val raw = context.assets.open(RELEASE_ASSET).bufferedReader(Charsets.UTF_8).use { it.readText() }
         val root = JSONObject(raw)
         require(root.optInt("schemaVersion") == 1) { "Unsupported Islamic library release schema." }
+        val releaseVersion = root.required("releaseVersion")
+        val releasePrefs = context.getSharedPreferences("noor_islamic_release", Context.MODE_PRIVATE)
+        if (releasePrefs.getString("installed_version", null) == releaseVersion) {
+            val coverage = IslamicContentDatabase.get(context).getCoverage()
+            return ImportResult(
+                coverage.arabicAyahs,
+                coverage.translationAyahsByLanguage.values.sum(),
+                coverage.tafsirEntriesByEdition.values.sum(),
+                coverage.bukhariNarrations,
+                coverage.muslimNarrations
+            )
+        }
 
         val editions = root.getJSONArray("editions")
         val editionById = validateEditions(editions)
@@ -64,6 +76,7 @@ internal object IslamicContentImporter {
             val muslim = hadiths.countObjects { it.optString("collectionId") == "sahih_al_muslim" }
             val result = ImportResult(quran.length(), translations.length(), tafsir.length(), bukhari, muslim)
             db.setTransactionSuccessful()
+            releasePrefs.edit().putString("installed_version", releaseVersion).apply()
             return result
         } finally {
             db.endTransaction()
@@ -166,6 +179,19 @@ internal object IslamicContentImporter {
             "Hadith release must include both Sahih al-Bukhari and Sahih Muslim collections."
         }
         require(books.length() > 0 && hadiths.length() > 0) { "Hadith release has no books or narrations." }
+        for (index in 0 until collections.length()) {
+            val collection = collections.getJSONObject(index)
+            val sourceEdition = editions[collection.required("sourceEditionId")]
+                ?: error("Hadith collection references an unknown source edition.")
+            require(sourceEdition.optString("contentType") == "hadith_source") {
+                "Hadith collection source must use a hadith_source edition."
+            }
+        }
+        setOf("sahih_al_bukhari", "sahih_muslim").forEach { collectionId ->
+            require(hadiths.countObjects { it.optString("collectionId") == collectionId } > 0) {
+                "Hadith release has no narrations for $collectionId."
+            }
+        }
         val bookIds = (0 until books.length()).map { books.getJSONObject(it).required("bookId") }.toSet()
         val hadithIds = mutableSetOf<String>()
         for (index in 0 until hadiths.length()) {
