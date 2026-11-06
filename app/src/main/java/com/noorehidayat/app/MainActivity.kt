@@ -51,6 +51,11 @@ import androidx.media3.exoplayer.ExoPlayer
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
 
+/** Bundled Amiri Naskh typeface used for Quranic Arabic text and Surah names. */
+private val QuranArabicFont = FontFamily(
+    androidx.compose.ui.text.font.Font(R.font.amiri_quran, FontWeight.Normal)
+)
+
 class MainActivity : ComponentActivity() {
 
     override fun onCreate(savedInstanceState: Bundle?) {
@@ -761,7 +766,7 @@ private fun HomeScreen(
                         border = BorderStroke(1.dp, Border)
                     ) {
                         Column(Modifier.padding(12.dp)) {
-                            Text(surah.name, color = Gold, fontSize = 20.sp, fontWeight = FontWeight.Bold)
+                            Text(surah.name, color = Gold, fontSize = 22.sp, fontFamily = QuranArabicFont, fontWeight = FontWeight.Normal)
                             Text(surah.english, color = Cream, fontWeight = FontWeight.SemiBold, fontSize = 13.sp)
                             Text("${surah.ayahs} Ayahs", color = Muted, fontSize = 10.sp)
                         }
@@ -936,7 +941,7 @@ private fun QuranReaderScreen(
         ) {
             Column(Modifier.weight(1f)) {
                 Text("SURAH ${surah.number} · ${surah.type.uppercase()}", color = Gold, fontSize = 10.sp, letterSpacing = 1.5.sp)
-                Text("${surah.english} (${surah.name})", color = Cream, fontSize = 20.sp, fontWeight = FontWeight.Bold)
+                Text(surah.english, color = Cream, fontSize = 20.sp, fontWeight = FontWeight.Bold)
             }
             IconButton(onClick = { onToggleFav() }) {
                 Icon(if (isFav) Icons.Default.Favorite else Icons.Default.FavoriteBorder, null, tint = Gold)
@@ -955,6 +960,42 @@ private fun QuranReaderScreen(
                 Icon(Icons.Default.PlayArrow, null)
                 Spacer(Modifier.width(4.dp))
                 Text("Listen", fontWeight = FontWeight.Bold, fontSize = 12.sp)
+            }
+        }
+
+        // Surah name in bundled Amiri Naskh typography; this stays within the existing Quran reader.
+        Card(
+            modifier = Modifier.fillMaxWidth().padding(bottom = 10.dp),
+            shape = RoundedCornerShape(18.dp),
+            colors = CardDefaults.cardColors(containerColor = Deep),
+            border = BorderStroke(1.dp, Gold.copy(alpha = 0.55f))
+        ) {
+            Box(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .background(Brush.horizontalGradient(listOf(Deep, Panel, Deep)))
+                    .padding(horizontal = 14.dp, vertical = 12.dp),
+                contentAlignment = Alignment.Center
+            ) {
+                Column(horizontalAlignment = Alignment.CenterHorizontally) {
+                    Text("۞", color = Gold.copy(alpha = 0.85f), fontFamily = QuranArabicFont, fontSize = 19.sp)
+                    Text(
+                        text = surah.name,
+                        color = Gold,
+                        fontFamily = QuranArabicFont,
+                        fontWeight = FontWeight.Normal,
+                        fontSize = 34.sp,
+                        lineHeight = 48.sp,
+                        textAlign = TextAlign.Center,
+                        modifier = Modifier.fillMaxWidth()
+                    )
+                    Text(
+                        text = "${surah.english}  ·  ${surah.ayahs} Ayahs",
+                        color = Muted,
+                        fontSize = 10.sp,
+                        letterSpacing = 1.sp
+                    )
+                }
             }
         }
 
@@ -1164,11 +1205,11 @@ private fun QuranReaderScreen(
                         Text(
                             text = "${ayah.arabic} ۝${ayah.number}",
                             color = Cream,
-                            fontSize = arabicFontSize.sp,
-                            lineHeight = (arabicFontSize * 1.8f).sp,
-                            textAlign = TextAlign.End,
-                            fontFamily = FontFamily.Serif,
-                            fontWeight = FontWeight.Bold,
+                            fontSize = (arabicFontSize + 2f).sp,
+                            lineHeight = (arabicFontSize * 2.05f).sp,
+                            textAlign = TextAlign.Center,
+                            fontFamily = QuranArabicFont,
+                            fontWeight = FontWeight.Normal,
                             modifier = Modifier
                                 .fillMaxWidth()
                                 .padding(vertical = 10.dp)
@@ -1226,7 +1267,7 @@ private fun QuranReaderScreen(
                                             .padding(horizontal = 8.dp, vertical = 4.dp)
                                     ) {
                                         Column(horizontalAlignment = Alignment.CenterHorizontally) {
-                                            Text(word.arabic, color = Gold, fontSize = 14.sp)
+                                            Text(word.arabic, color = Gold, fontSize = 17.sp, fontFamily = QuranArabicFont, fontWeight = FontWeight.Normal)
                                             Text(
                                                 if (appLanguage == AppLanguage.URDU) word.urdu else word.english,
                                                 color = Muted,
