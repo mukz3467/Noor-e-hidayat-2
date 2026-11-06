@@ -35,8 +35,7 @@ internal object MediaAssetManager {
                     column >= 0 && it.getInt(column) in setOf(
                         DownloadManager.STATUS_PENDING,
                         DownloadManager.STATUS_RUNNING,
-                        DownloadManager.STATUS_PAUSED,
-                        DownloadManager.STATUS_SUCCESSFUL
+                        DownloadManager.STATUS_PAUSED
                     )
                 }
             } ?: false
