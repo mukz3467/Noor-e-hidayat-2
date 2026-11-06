@@ -8,14 +8,11 @@ import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
-import androidx.compose.foundation.lazy.LazyRow
-import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.filled.Calculate
+import androidx.compose.material.icons.filled.Add
 import androidx.compose.material.icons.filled.ContentCopy
-import androidx.compose.material.icons.filled.Share
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
@@ -27,317 +24,149 @@ import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 
+private data class ZakatAsset(val id: Int, val kind: String, val amount: String = "", val rate: String = "")
+
+@OptIn(ExperimentalMaterial3Api::class)
 @Composable
 internal fun ZakatCalculatorScreen(appLanguage: AppLanguage = AppLanguage.ENGLISH) {
-    val ctx = LocalContext.current
+    val context = LocalContext.current
+    val urdu = appLanguage == AppLanguage.URDU
+    val kinds = listOf("Cash & bank balance" to "نقد رقم اور بینک بیلنس", "Gold" to "سونا", "Silver" to "چاندی", "Business stock / inventory" to "مالِ تجارت / کاروباری اسٹاک", "Shares & investments (zakatable value)" to "قابلِ زکوٰۃ شیئرز اور سرمایہ کاری", "Money lent / receivable" to "واپس ملنے والی دی گئی رقم", "Other zakatable savings" to "دیگر قابلِ زکوٰۃ بچت")
+    val currencies = listOf("PKR (Rs)" to "Rs", "USD ($)" to "$", "SAR" to "SAR", "AED" to "AED", "GBP (£)" to "£", "EUR (€)" to "€", "INR (₹)" to "₹")
+    var currencyIndex by remember { mutableIntStateOf(0) }
+    var currencyExpanded by remember { mutableStateOf(false) }
+    var assets by remember { mutableStateOf(listOf(ZakatAsset(1, kinds[0].first))) }
+    var nextId by remember { mutableIntStateOf(2) }
+    var addExpanded by remember { mutableStateOf(false) }
+    var debt by remember { mutableStateOf("") }
+    var dueBills by remember { mutableStateOf("") }
+    var nisabType by remember { mutableStateOf("Silver") }
+    var silverRate by remember { mutableStateOf("") }
+    var goldRate by remember { mutableStateOf("") }
+    val symbol = currencies[currencyIndex].second
+    fun n(s: String) = s.replace(",", "").toDoubleOrNull()?.coerceAtLeast(0.0) ?: 0.0
+    fun metal(kind: String) = kind == "Gold" || kind == "Silver"
+    val assetTotal = assets.sumOf { if (metal(it.kind)) n(it.amount) * n(it.rate) else n(it.amount) }
+    val deductions = n(debt) + n(dueBills)
+    val net = (assetTotal - deductions).coerceAtLeast(0.0)
+    val nisab = if (nisabType == "Silver") 612.36 * n(silverRate) else 87.48 * n(goldRate)
+    val hasNisab = nisab > 0
+    val eligible = hasNisab && net >= nisab
+    val zakat = if (eligible) net * 0.025 else 0.0
 
-    val currencies = remember {
-        listOf(
-            CurrencyRate("PKR", "Rs", 0.0, 0.0),
-            CurrencyRate("INR", "₹", 0.0, 0.0),
-            CurrencyRate("USD", "$", 0.0, 0.0),
-            CurrencyRate("SAR", "SAR", 0.0, 0.0),
-            CurrencyRate("AED", "AED", 0.0, 0.0),
-            CurrencyRate("EUR", "€", 0.0, 0.0),
-            CurrencyRate("GBP", "£", 0.0, 0.0)
-        )
-    }
-
-    var selectedCurrency by remember { mutableStateOf(currencies.first()) }
-    var goldRateInput by remember { mutableStateOf("") }
-    var silverRateInput by remember { mutableStateOf("") }
-    val goldRate = goldRateInput.toDoubleOrNull()?.takeIf { it > 0 } ?: 0.0
-    val silverRate = silverRateInput.toDoubleOrNull()?.takeIf { it > 0 } ?: 0.0
-
-    // Inputs
-    var cashVal by remember { mutableStateOf("") }
-    var goldGrams by remember { mutableStateOf("") }
-    var silverGrams by remember { mutableStateOf("") }
-    var tradeStockVal by remember { mutableStateOf("") }
-    var sharesInvestments by remember { mutableStateOf("") }
-    var loanedOutVal by remember { mutableStateOf("") }
-
-    // Deductions
-    var debtsVal by remember { mutableStateOf("") }
-    var unpaidBills by remember { mutableStateOf("") }
-
-    val cash = cashVal.toDoubleOrNull() ?: 0.0
-    val goldWeight = goldGrams.toDoubleOrNull() ?: 0.0
-    val silverWeight = silverGrams.toDoubleOrNull() ?: 0.0
-    val tradeStock = tradeStockVal.toDoubleOrNull() ?: 0.0
-    val shares = sharesInvestments.toDoubleOrNull() ?: 0.0
-    val loaned = loanedOutVal.toDoubleOrNull() ?: 0.0
-
-    val debts = debtsVal.toDoubleOrNull() ?: 0.0
-    val bills = unpaidBills.toDoubleOrNull() ?: 0.0
-
-    // Calculations
-    val goldTotalValue = goldWeight * goldRate
-    val silverTotalValue = silverWeight * silverRate
-
-    val totalAssets = cash + goldTotalValue + silverTotalValue + tradeStock + shares + loaned
-    val totalLiabilities = debts + bills
-    val netZakatableWealth = (totalAssets - totalLiabilities).coerceAtLeast(0.0)
-
-    // Silver Nisab (612.36g) is the standard safer threshold for mixed wealth
-    val silverNisabValue = 612.36 * silverRate
-    val goldNisabValue = 87.48 * goldRate
-
-    val isEligible = silverRate > 0.0 && netZakatableWealth >= silverNisabValue
-    val zakatPayable = if (isEligible) netZakatableWealth * 0.025 else 0.0
-
-    Column(
-        modifier = Modifier
-            .fillMaxSize()
-            .background(Emerald)
-            .padding(horizontal = 18.dp)
-    ) {
+    Column(Modifier.fillMaxSize().background(Emerald).padding(horizontal = 16.dp)) {
         Spacer(Modifier.height(10.dp))
-        Text(
-            I18n.t("zakat_calculator", appLanguage).uppercase(),
-            color = Gold,
-            fontSize = 11.sp,
-            letterSpacing = 2.sp,
-            fontWeight = FontWeight.Bold
-        )
-        Text(
-            if (appLanguage == AppLanguage.URDU) "جامع شرعی زکوٰۃ کیلکولیٹر" else "Smart Zakat & Nisab Calculator",
-            color = Cream,
-            fontSize = 22.sp,
-            fontWeight = FontWeight.Bold,
-            modifier = Modifier.padding(top = 4.dp, bottom = 8.dp)
-        )
-
-        // Currency Selector
-        LazyRow(horizontalArrangement = Arrangement.spacedBy(6.dp)) {
-            items(currencies) { curr ->
-                FilterChip(
-                    selected = selectedCurrency.code == curr.code,
-                    onClick = {
-                        selectedCurrency = curr
-                        goldRateInput = ""
-                        silverRateInput = ""
-                    },
-                    label = { Text("${curr.code} (${curr.symbol})", fontSize = 11.sp) },
-                    colors = FilterChipDefaults.filterChipColors(
-                        selectedContainerColor = Gold,
-                        selectedLabelColor = Emerald,
-                        containerColor = Panel,
-                        labelColor = Cream
-                    )
-                )
+        Text(I18n.t("zakat_calculator", appLanguage).uppercase(), color = Gold, fontSize = 11.sp, letterSpacing = 2.sp, fontWeight = FontWeight.Bold)
+        Text(if (urdu) "آسان زکوٰۃ کیلکولیٹر" else "Zakat Calculator", color = Cream, fontSize = 23.sp, fontWeight = FontWeight.Bold, modifier = Modifier.padding(top = 4.dp))
+        Text(if (urdu) "اثاثے درج کریں، حساب خود بخود ہوگا" else "Add your assets. The calculation updates automatically.", color = Muted, fontSize = 12.sp, modifier = Modifier.padding(top = 3.dp, bottom = 8.dp))
+        LazyColumn(verticalArrangement = Arrangement.spacedBy(10.dp), contentPadding = PaddingValues(bottom = 24.dp)) {
+            item {
+                ZakatPanel(if (urdu) "1۔ کرنسی منتخب کریں" else "1. Select currency") {
+                    ExposedDropdownMenuBox(expanded = currencyExpanded, onExpandedChange = { currencyExpanded = it }) {
+                        OutlinedTextField(value = currencies[currencyIndex].first, onValueChange = {}, readOnly = true, trailingIcon = { ExposedDropdownMenuDefaults.TrailingIcon(expanded = currencyExpanded) }, modifier = Modifier.menuAnchor().fillMaxWidth(), colors = zakatFieldColors())
+                        ExposedDropdownMenu(expanded = currencyExpanded, onDismissRequest = { currencyExpanded = false }) {
+                            currencies.forEachIndexed { index, item -> DropdownMenuItem(text = { Text(item.first) }, onClick = { currencyIndex = index; currencyExpanded = false }) }
+                        }
+                    }
+                    Text(if (urdu) "تمام رقم اسی کرنسی میں درج کریں۔ کرنسی بدلنے سے رقم تبدیل نہیں ہوگی۔" else "Enter all amounts in this currency. Changing currency does not convert existing amounts.", color = Muted, fontSize = 10.sp)
+                }
             }
-        }
-
-        Spacer(Modifier.height(10.dp))
-
-        // Summary Result Card
-        Card(
-            modifier = Modifier.fillMaxWidth(),
-            shape = RoundedCornerShape(18.dp),
-            colors = CardDefaults.cardColors(containerColor = if (isEligible) EmeraldGlow.copy(alpha = 0.2f) else Panel),
-            border = BorderStroke(1.5.dp, if (isEligible) EmeraldGlow else Gold)
-        ) {
-            Column(Modifier.padding(16.dp)) {
-                Row(
-                    modifier = Modifier.fillMaxWidth(),
-                    horizontalArrangement = Arrangement.SpaceBetween,
-                    verticalAlignment = Alignment.CenterVertically
-                ) {
-                    Text(
-                        if (isEligible) "ZAKAT IS PAYABLE (فرض ہے)" else if (silverRate <= 0.0) "ENTER CURRENT SILVER RATE FIRST" else "BELOW NISAB THRESHOLD",
-                        color = if (isEligible) EmeraldGlow else Gold,
-                        fontSize = 11.sp,
-                        fontWeight = FontWeight.Bold
-                    )
-                    IconButton(onClick = {
-                        val summaryText = """
-                            --- Noor-e-Hidayat Zakat Calculation ---
-                            Net Zakatable Wealth: ${selectedCurrency.symbol} ${"%,.0f".format(netZakatableWealth)}
-                            Nisab Threshold (Silver): ${selectedCurrency.symbol} ${"%,.0f".format(silverNisabValue)}
-                            Total Zakat Due (2.5%): ${selectedCurrency.symbol} ${"%,.0f".format(zakatPayable)}
-                        """.trimIndent()
-                        val cm = ctx.getSystemService(Context.CLIPBOARD_SERVICE) as ClipboardManager
-                        cm.setPrimaryClip(ClipData.newPlainText("Zakat Summary", summaryText))
-                        Toast.makeText(ctx, "Zakat summary copied", Toast.LENGTH_SHORT).show()
-                    }) {
-                        Icon(Icons.Default.ContentCopy, null, tint = Gold, modifier = Modifier.size(20.dp))
+            item {
+                Card(Modifier.fillMaxWidth(), shape = RoundedCornerShape(16.dp), colors = CardDefaults.cardColors(containerColor = Panel), border = BorderStroke(1.dp, if (eligible) EmeraldGlow else Gold)) {
+                    Column(Modifier.padding(15.dp), verticalArrangement = Arrangement.spacedBy(7.dp)) {
+                        Text(when { !hasNisab -> if (urdu) "نصاب کا ریٹ درج کریں" else "Enter the selected Nisab metal rate"; eligible -> if (urdu) "نصاب پورا ہے — زکوٰۃ کا تخمینہ" else "Nisab reached — estimated Zakat"; else -> if (urdu) "مال منتخب نصاب سے کم ہے" else "Below selected Nisab" }, color = Gold, fontWeight = FontWeight.Bold, fontSize = 11.sp)
+                        Text("$symbol \${"%,.2f".format(zakat)}", color = Cream, fontSize = 30.sp, fontWeight = FontWeight.Bold)
+                        Text(if (urdu) "2.5% زکوٰۃ (تخمینہ)" else "Estimated Zakat at 2.5%", color = Muted, fontSize = 11.sp)
+                        HorizontalDivider(color = Border)
+                        ZakatResultRow(if (urdu) "کل اثاثے" else "Total assets", "$symbol \${"%,.2f".format(assetTotal)}")
+                        ZakatResultRow(if (urdu) "قرض اور واجبات" else "Debts and due bills", "$symbol \${"%,.2f".format(deductions)}")
+                        ZakatResultRow(if (urdu) "خالص مال" else "Net wealth", "$symbol \${"%,.2f".format(net)}")
+                        ZakatResultRow(if (urdu) "نصاب" else "$nisabType Nisab", if (hasNisab) "$symbol \${"%,.2f".format(nisab)}" else "—")
+                        OutlinedButton(onClick = {
+                            val summary = "Noor-e-Hidayat Zakat estimate\nCurrency: \${currencies[currencyIndex].first}\nAssets: \${"%.2f".format(assetTotal)}\nDeductions: \${"%.2f".format(deductions)}\nNet wealth: \${"%.2f".format(net)}\nNisab: \${"%.2f".format(nisab)}\nEstimated Zakat (2.5%): \${"%.2f".format(zakat)}"
+                            val clipboard = context.getSystemService(Context.CLIPBOARD_SERVICE) as ClipboardManager
+                            clipboard.setPrimaryClip(ClipData.newPlainText("Zakat estimate", summary))
+                            Toast.makeText(context, if (urdu) "حساب کاپی ہوگیا" else "Calculation copied", Toast.LENGTH_SHORT).show()
+                        }, modifier = Modifier.align(Alignment.End), colors = ButtonDefaults.outlinedButtonColors(contentColor = Gold), border = BorderStroke(1.dp, Gold)) {
+                            Icon(Icons.Default.ContentCopy, null); Spacer(Modifier.width(5.dp)); Text(if (urdu) "کاپی کریں" else "Copy result")
+                        }
                     }
                 }
-
-                Spacer(Modifier.height(4.dp))
-                Text(
-                    "${selectedCurrency.symbol} ${"%,.0f".format(zakatPayable)}",
-                    color = Cream,
-                    fontSize = 32.sp,
-                    fontWeight = FontWeight.Bold
-                )
-                Text(
-                    "Exact 2.5% of net zakatable assets (${selectedCurrency.symbol} ${"%,.0f".format(netZakatableWealth)})",
-                    color = Muted,
-                    fontSize = 11.sp
-                )
-
-                Spacer(Modifier.height(8.dp))
-                Text(
-                    "Silver Nisab: ${selectedCurrency.symbol} ${"%,.0f".format(silverNisabValue)} (612.36g) · Gold Nisab: ${selectedCurrency.symbol} ${"%,.0f".format(goldNisabValue)} (87.48g)",
-                    color = Gold,
-                    fontSize = 10.sp
-                )
-            }
-        }
-
-        Spacer(Modifier.height(12.dp))
-
-        // Input Fields List
-        LazyColumn(
-            modifier = Modifier.weight(1f),
-            verticalArrangement = Arrangement.spacedBy(10.dp),
-            contentPadding = PaddingValues(bottom = 24.dp)
-        ) {
-            item {
-                Text(
-                    if (appLanguage == AppLanguage.URDU) "حساب سے پہلے آج کے مقامی مارکیٹ ریٹس درج کریں"
-                    else "Enter current local market prices per gram. Rates are not fetched live.",
-                    color = Gold,
-                    fontSize = 12.sp
-                )
             }
             item {
-                ZakatInputField(
-                    label = "Current gold price per gram (${selectedCurrency.code})",
-                    urduLabel = "فی گرام سونے کی موجودہ قیمت",
-                    value = goldRateInput,
-                    onValueChange = { goldRateInput = it },
-                    prefix = selectedCurrency.symbol
-                )
+                ZakatPanel(if (urdu) "2۔ اپنے اثاثے شامل کریں" else "2. Add your zakatable assets") {
+                    Text(if (urdu) "جس قسم کا مال موجود ہو اسے منتخب کرکے رقم درج کریں۔ سونے اور چاندی کے لیے وزن اور فی گرام قیمت درج کریں۔" else "Select the assets you own. For gold and silver, enter weight in grams and current price per gram.", color = Muted, fontSize = 11.sp)
+                    assets.forEach { asset ->
+                        Card(Modifier.fillMaxWidth(), colors = CardDefaults.cardColors(containerColor = Deep), border = BorderStroke(1.dp, Border), shape = RoundedCornerShape(12.dp)) {
+                            Column(Modifier.padding(10.dp), verticalArrangement = Arrangement.spacedBy(6.dp)) {
+                                Row(verticalAlignment = Alignment.CenterVertically) {
+                                    Text(if (urdu) kinds.firstOrNull { it.first == asset.kind }?.second ?: asset.kind else asset.kind, color = Cream, fontWeight = FontWeight.SemiBold, fontSize = 12.sp, modifier = Modifier.weight(1f))
+                                    TextButton(onClick = { assets = assets.filterNot { it.id == asset.id } }) { Text(if (urdu) "ہٹائیں" else "Remove", color = Color(0xFFE57373), fontSize = 10.sp) }
+                                }
+                                if (metal(asset.kind)) {
+                                    ZakatNumberField(if (urdu) "وزن (گرام)" else "Weight (grams)", asset.amount) { v -> assets = assets.map { if (it.id == asset.id) it.copy(amount = v) else it } }
+                                    ZakatNumberField("$symbol / gram — \${if (urdu) "آج کی قیمت" else "Today's price per gram"}", asset.rate) { v -> assets = assets.map { if (it.id == asset.id) it.copy(rate = v) else it } }
+                                    Text("$symbol \${"%,.2f".format(n(asset.amount) * n(asset.rate))}", color = Gold, fontSize = 11.sp)
+                                } else {
+                                    ZakatNumberField(if (urdu) "قابلِ زکوٰۃ رقم ($symbol)" else "Zakatable value ($symbol)", asset.amount) { v -> assets = assets.map { if (it.id == asset.id) it.copy(amount = v) else it } }
+                                }
+                            }
+                        }
+                    }
+                    Box {
+                        OutlinedButton(onClick = { addExpanded = true }, modifier = Modifier.fillMaxWidth(), colors = ButtonDefaults.outlinedButtonColors(contentColor = Gold), border = BorderStroke(1.dp, Gold)) { Icon(Icons.Default.Add, null); Spacer(Modifier.width(5.dp)); Text(if (urdu) "اثاثہ منتخب کریں" else "Add / select an asset") }
+                        DropdownMenu(expanded = addExpanded, onDismissRequest = { addExpanded = false }) {
+                            kinds.forEach { kind -> DropdownMenuItem(text = { Text(if (urdu) kind.second else kind.first) }, onClick = { assets = assets + ZakatAsset(nextId++, kind.first); addExpanded = false }) }
+                        }
+                    }
+                }
             }
             item {
-                ZakatInputField(
-                    label = "Current silver price per gram (${selectedCurrency.code})",
-                    urduLabel = "فی گرام چاندی کی موجودہ قیمت",
-                    value = silverRateInput,
-                    onValueChange = { silverRateInput = it },
-                    prefix = selectedCurrency.symbol
-                )
+                ZakatPanel(if (urdu) "3۔ نصاب منتخب کریں" else "3. Choose Nisab basis") {
+                    Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                        FilterChip(selected = nisabType == "Silver", onClick = { nisabType = "Silver" }, label = { Text(if (urdu) "چاندی" else "Silver") }, colors = zakatChipColors())
+                        FilterChip(selected = nisabType == "Gold", onClick = { nisabType = "Gold" }, label = { Text(if (urdu) "سونا" else "Gold") }, colors = zakatChipColors())
+                    }
+                    if (nisabType == "Silver") {
+                        ZakatNumberField(if (urdu) "چاندی فی گرام قیمت ($symbol)" else "Silver price per gram ($symbol)", silverRate) { silverRate = it }
+                        Text(if (urdu) "نصاب: 612.36 گرام چاندی" else "Reference: 612.36 g silver", color = Muted, fontSize = 10.sp)
+                    } else {
+                        ZakatNumberField(if (urdu) "سونا فی گرام قیمت ($symbol)" else "Gold price per gram ($symbol)", goldRate) { goldRate = it }
+                        Text(if (urdu) "نصاب: 87.48 گرام سونا" else "Reference: 87.48 g gold", color = Muted, fontSize = 10.sp)
+                    }
+                    Text(if (urdu) "مقامی مارکیٹ ریٹ خود درج کریں؛ لائیو ریٹ دستیاب ہونے کا دعویٰ نہیں۔ نصاب کے انتخاب میں فقہی اختلاف ہوسکتا ہے۔" else "Enter the local market rate yourself; no live rate is claimed. Nisab practice can differ by school of jurisprudence.", color = Muted, fontSize = 10.sp)
+                }
             }
             item {
-                Text("ZAKATABLE ASSETS (اثاثہ جات)", color = Gold, fontSize = 11.sp, fontWeight = FontWeight.Bold)
+                ZakatPanel(if (urdu) "4۔ واجب الادا قرض اور بل" else "4. Debts and due bills") {
+                    ZakatNumberField(if (urdu) "فوری واجب الادا قرضے ($symbol)" else "Debts currently due ($symbol)", debt) { debt = it }
+                    ZakatNumberField(if (urdu) "واجب الادا بل ($symbol)" else "Overdue bills / dues ($symbol)", dueBills) { dueBills = it }
+                }
             }
-
             item {
-                ZakatInputField(
-                    label = "Cash in Hand & Bank Accounts",
-                    urduLabel = "نقد رقم اور بینک بیلنس",
-                    value = cashVal,
-                    onValueChange = { cashVal = it },
-                    prefix = selectedCurrency.symbol
-                )
-            }
-
-            item {
-                ZakatInputField(
-                    label = "Gold (Grams) · Rate: ${selectedCurrency.symbol}${"%,.2f".format(goldRate)}/g",
-                    urduLabel = "سونا (گرام میں)",
-                    value = goldGrams,
-                    onValueChange = { goldGrams = it },
-                    prefix = "g"
-                )
-            }
-
-            item {
-                ZakatInputField(
-                    label = "Silver (Grams) · Rate: ${selectedCurrency.symbol}${"%,.2f".format(silverRate)}/g",
-                    urduLabel = "چاندی (گرام میں)",
-                    value = silverGrams,
-                    onValueChange = { silverGrams = it },
-                    prefix = "g"
-                )
-            }
-
-            item {
-                ZakatInputField(
-                    label = "Business Inventory & Trade Stock",
-                    urduLabel = "مالِ تجارت اور اسٹاک",
-                    value = tradeStockVal,
-                    onValueChange = { tradeStockVal = it },
-                    prefix = selectedCurrency.symbol
-                )
-            }
-
-            item {
-                ZakatInputField(
-                    label = "Shares, Mutual Funds & Investments",
-                    urduLabel = "شیئرز اور سرمایہ کاری",
-                    value = sharesInvestments,
-                    onValueChange = { sharesInvestments = it },
-                    prefix = selectedCurrency.symbol
-                )
-            }
-
-            item {
-                Text("DEDUCTIONS & LIABILITIES (واجب الادا قرضے)", color = Color(0xFFEF4444), fontSize = 11.sp, fontWeight = FontWeight.Bold, modifier = Modifier.padding(top = 6.dp))
-            }
-
-            item {
-                ZakatInputField(
-                    label = "Immediate Personal Debts Payable",
-                    urduLabel = "فوری واجب الادا قرضے",
-                    value = debtsVal,
-                    onValueChange = { debtsVal = it },
-                    prefix = selectedCurrency.symbol
-                )
-            }
-
-            item {
-                ZakatInputField(
-                    label = "Overdue Bills, Rent & Wages",
-                    urduLabel = "واجب الادا بل، کرایہ اور تنخواہیں",
-                    value = unpaidBills,
-                    onValueChange = { unpaidBills = it },
-                    prefix = selectedCurrency.symbol
-                )
+                ZakatPanel(if (urdu) "ضروری شرعی وضاحت" else "Important guidance") {
+                    Text(if (urdu) "یہ عمومی تخمینہ ہے، فتویٰ نہیں۔ زکوٰۃ عموماً نصاب کے مالک ہونے اور ایک قمری سال گزرنے کی شرط سے متعلق ہے؛ صرف سالانہ تنخواہ یا کل آمدنی پر خودکار طور پر زکوٰۃ نہیں لگتی۔ ذاتی استعمال کا گھر، گاڑی اور عام ذاتی سامان عموماً شامل نہیں۔ زرعی پیداوار، مویشی، پنشن، پیچیدہ سرمایہ کاری اور قرض کی کٹوتی کے احکام الگ ہوسکتے ہیں؛ مستند عالم سے تصدیق کریں۔" else "This is a general estimate, not a fatwa. Zakat generally requires qualifying ownership at Nisab and completion of a lunar year; it is not simply 2.5% of annual salary or gross income. A personal residence, car and ordinary personal-use items are generally excluded. Agricultural produce, livestock, pensions, complex investments and debt deductions follow separate rulings; confirm individual cases with a qualified scholar.", color = Muted, fontSize = 11.sp, lineHeight = 17.sp)
+                }
             }
         }
     }
 }
 
 @Composable
-private fun ZakatInputField(
-    label: String,
-    urduLabel: String,
-    value: String,
-    onValueChange: (String) -> Unit,
-    prefix: String
-) {
-    Card(
-        modifier = Modifier.fillMaxWidth(),
-        shape = RoundedCornerShape(12.dp),
-        colors = CardDefaults.cardColors(containerColor = Panel),
-        border = BorderStroke(1.dp, Border)
-    ) {
-        Column(Modifier.padding(12.dp)) {
-            Text(label, color = Cream, fontSize = 13.sp, fontWeight = FontWeight.SemiBold)
-            Text(urduLabel, color = Muted, fontSize = 11.sp)
-            Spacer(Modifier.height(6.dp))
-            OutlinedTextField(
-                value = value,
-                onValueChange = onValueChange,
-                singleLine = true,
-                keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
-                leadingIcon = { Text(prefix, color = Gold, fontWeight = FontWeight.Bold, modifier = Modifier.padding(start = 12.dp)) },
-                placeholder = { Text("0", color = Muted) },
-                modifier = Modifier.fillMaxWidth(),
-                shape = RoundedCornerShape(10.dp),
-                colors = OutlinedTextFieldDefaults.colors(
-                    focusedBorderColor = Gold,
-                    unfocusedBorderColor = Border,
-                    focusedTextColor = Cream,
-                    unfocusedTextColor = Cream,
-                    focusedContainerColor = Deep,
-                    unfocusedContainerColor = Deep
-                )
-            )
-        }
+private fun ZakatPanel(title: String, content: @Composable ColumnScope.() -> Unit) {
+    Card(Modifier.fillMaxWidth(), shape = RoundedCornerShape(14.dp), colors = CardDefaults.cardColors(containerColor = Panel), border = BorderStroke(1.dp, Border)) {
+        Column(Modifier.padding(13.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) { Text(title, color = Gold, fontWeight = FontWeight.Bold, fontSize = 13.sp); content() }
     }
 }
+@Composable
+private fun ZakatResultRow(label: String, value: String) {
+    Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) { Text(label, color = Muted, fontSize = 11.sp, modifier = Modifier.weight(1f)); Text(value, color = Cream, fontSize = 11.sp, fontWeight = FontWeight.SemiBold) }
+}
+@Composable
+private fun ZakatNumberField(label: String, value: String, onChange: (String) -> Unit) {
+    OutlinedTextField(value = value, onValueChange = { input -> onChange(input.filter { it.isDigit() || it == '.' || it == ',' }) }, label = { Text(label, fontSize = 10.sp) }, singleLine = true, keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Decimal), modifier = Modifier.fillMaxWidth(), shape = RoundedCornerShape(10.dp), colors = zakatFieldColors())
+}
+@Composable
+private fun zakatFieldColors() = OutlinedTextFieldDefaults.colors(focusedBorderColor = Gold, unfocusedBorderColor = Border, focusedTextColor = Cream, unfocusedTextColor = Cream, focusedLabelColor = Gold, unfocusedLabelColor = Muted, cursorColor = Gold, focusedContainerColor = Deep, unfocusedContainerColor = Deep)
+@Composable
+private fun zakatChipColors() = FilterChipDefaults.filterChipColors(selectedContainerColor = Gold, selectedLabelColor = Emerald, containerColor = Deep, labelColor = Cream)
