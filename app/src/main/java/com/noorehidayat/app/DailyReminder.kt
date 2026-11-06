@@ -55,9 +55,12 @@ internal object DailyReminderScheduler {
     fun schedule(context: Context) {
         if (!context.getSharedPreferences("noor_prefs", 0).getBoolean("daily_reminder_enabled", false)) return
         createChannel(context)
+        val prefs = context.getSharedPreferences("noor_prefs", 0)
+        val reminderHour = prefs.getInt("daily_reminder_hour", 9).coerceIn(0, 23)
+        val reminderMinute = prefs.getInt("daily_reminder_minute", 0).coerceIn(0, 59)
         val calendar = Calendar.getInstance().apply {
-            set(Calendar.HOUR_OF_DAY, 9)
-            set(Calendar.MINUTE, 0)
+            set(Calendar.HOUR_OF_DAY, reminderHour)
+            set(Calendar.MINUTE, reminderMinute)
             set(Calendar.SECOND, 0)
             set(Calendar.MILLISECOND, 0)
             if (timeInMillis <= System.currentTimeMillis()) add(Calendar.DAY_OF_YEAR, 1)
