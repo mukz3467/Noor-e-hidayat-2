@@ -14,6 +14,7 @@ import android.widget.Toast
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.BackHandler
 import androidx.activity.compose.setContent
+import androidx.lifecycle.lifecycleScope
 import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.Image
@@ -48,7 +49,9 @@ import androidx.compose.ui.viewinterop.AndroidView
 import androidx.media3.common.MediaItem
 import androidx.media3.common.Player
 import androidx.media3.exoplayer.ExoPlayer
+import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.delay
+import kotlinx.coroutines.launch
 import kotlinx.coroutines.launch
 
 /** Bundled Amiri Naskh typeface used for Quranic Arabic text and Surah names. */
@@ -61,6 +64,12 @@ class MainActivity : ComponentActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         MediaAssetManager.ensureStarterDownloads(this)
+        lifecycleScope.launch(Dispatchers.IO) {
+            // The importer is a no-op when no reviewed release bundle is packaged.
+            if (assets.list("islamic-library")?.contains("release.json") == true) {
+                runCatching { IslamicContentImporter.installBundledRelease(this@MainActivity) }
+            }
+        }
         setContent {
             NoorApp()
         }
