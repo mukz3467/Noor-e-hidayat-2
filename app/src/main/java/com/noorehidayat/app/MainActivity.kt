@@ -374,7 +374,10 @@ private fun NoorApp() {
                 )
                 "Prayer Times" -> PrayerTimesScreen(appLanguage = appLanguage)
                 "Qibla" -> QiblaScreen(appLanguage = appLanguage)
-                "Tafseer" -> TafseerScreen(surah = selectedSurah ?: QuranDataService.allSurahs.first())
+                "Tafseer" -> TafseerScreen(
+                    surah = selectedSurah ?: QuranDataService.allSurahs.first(),
+                    appLanguage = appLanguage
+                )
                 "Offline Quran" -> OfflineQuranDownloadScreen(
                     appLanguage = appLanguage,
                     onNavigateBack = { currentPage = "More" }
