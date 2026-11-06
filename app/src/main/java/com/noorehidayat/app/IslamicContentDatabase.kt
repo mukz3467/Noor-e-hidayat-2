@@ -1,6 +1,5 @@
 package com.noorehidayat.app
 
-import android.content.ContentValues
 import android.content.Context
 import android.database.sqlite.SQLiteDatabase
 import android.database.sqlite.SQLiteOpenHelper
@@ -168,6 +167,54 @@ internal class IslamicContentDatabase private constructor(context: Context) :
         }
     }
 
+    fun getQuranAyahs(surahNumber: Int): List<Ayah> {
+        val ayahs = linkedMapOf<Int, Ayah>()
+        readableDatabase.rawQuery(
+            "SELECT ayah_number, arabic_text FROM quran_ayahs WHERE surah_number = ? ORDER BY ayah_number",
+            arrayOf(surahNumber.toString())
+        ).use { cursor ->
+            while (cursor.moveToNext()) {
+                val number = cursor.getInt(0)
+                ayahs[number] = Ayah(number, cursor.getString(1), "", "", "", "")
+            }
+        }
+        if (ayahs.isEmpty()) return emptyList()
+        readableDatabase.rawQuery(
+            """SELECT t.ayah_number, t.text, e.edition_id, e.language_code,
+                      e.scholar_name, e.translator_name, e.work_title
+               FROM quran_translations t
+               JOIN content_editions e ON e.edition_id = t.edition_id
+               WHERE t.surah_number = ? AND e.content_type = 'translation'
+                 AND e.review_status = 'VERIFIED_FOR_RELEASE'
+               ORDER BY e.language_code, e.scholar_name, e.edition_id""",
+            arrayOf(surahNumber.toString())
+        ).use { cursor ->
+            val byAyah = mutableMapOf<Int, MutableList<AyahTranslationText>>()
+            while (cursor.moveToNext()) {
+                byAyah.getOrPut(cursor.getInt(0)) { mutableListOf() }.add(
+                    AyahTranslationText(
+                        editionId = cursor.getString(2),
+                        languageCode = cursor.getString(3),
+                        scholarName = cursor.getString(4),
+                        translatorName = cursor.getString(5),
+                        workTitle = cursor.getString(6),
+                        text = cursor.getString(1)
+                    )
+                )
+            }
+            byAyah.forEach { (number, translations) ->
+                val old = ayahs[number] ?: return@forEach
+                ayahs[number] = old.copy(
+                    englishTranslation = translations.firstOrNull { it.languageCode == "en" }?.text.orEmpty(),
+                    urduTranslation = translations.firstOrNull { it.languageCode == "ur" }?.text.orEmpty(),
+                    hindiTranslation = translations.firstOrNull { it.languageCode == "hi" }?.text.orEmpty(),
+                    translationEditions = translations
+                )
+            }
+        }
+        return ayahs.values.toList()
+    }
+
     fun getTafsirEditions(languageCode: String? = null): List<TafsirEdition> {
         val sql = buildString {
             append(
@@ -219,7 +266,7 @@ internal class IslamicContentDatabase private constructor(context: Context) :
             args += collectionId
         }
         if (!languageCode.isNullOrBlank()) {
-            where.append(" AND te.language_code = ?")
+            where.append(" AND te.language_code = ? AND te.review_status = 'VERIFIED_FOR_RELEASE'")
             args += languageCode
         }
         val sql =
