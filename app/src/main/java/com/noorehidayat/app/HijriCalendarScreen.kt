@@ -109,7 +109,17 @@ internal fun HijriCalendarScreen(appLanguage: AppLanguage = AppLanguage.ENGLISH)
             modifier = Modifier.padding(top = 4.dp, bottom = 8.dp)
         )
 
-        // Today's Hijri Date Card
+        Text(
+            if (appLanguage == AppLanguage.URDU)
+                "یہ تاریخ تخمینی حساب سے ہے، سرکاری ام القریٰ یا مقامی رویتِ ہلال کی تصدیق نہیں۔"
+            else
+                "This is an astronomical estimate, not an official Umm al-Qura or local moon-sighting date. Confirm important dates with your local authority.",
+            color = Muted,
+            fontSize = 12.sp,
+            modifier = Modifier.padding(bottom = 10.dp)
+        )
+
+        // Today's estimated Hijri date card
         Card(
             modifier = Modifier.fillMaxWidth(),
             shape = RoundedCornerShape(18.dp),
@@ -125,7 +135,7 @@ internal fun HijriCalendarScreen(appLanguage: AppLanguage = AppLanguage.ENGLISH)
                     horizontalArrangement = Arrangement.SpaceBetween,
                     verticalAlignment = Alignment.CenterVertically
                 ) {
-                    Text("UMM AL-QURA CALENDAR", color = Gold, fontSize = 10.sp, letterSpacing = 1.5.sp)
+                    Text("ESTIMATED HIJRI DATE · NOT OFFICIAL", color = Gold, fontSize = 10.sp, letterSpacing = 1.2.sp)
                     Text(
                         "${if (moonAdjustment >= 0) "+$moonAdjustment" else moonAdjustment} Day Adj",
                         color = Muted,
