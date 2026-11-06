@@ -41,7 +41,7 @@ internal fun HadithLibraryScreen(
         listOf("All", "Sahih al-Bukhari", "Sahih Muslim", "Jami` at-Tirmidhi", "40 Hadith Nawawi", "Riyad as-Salihin")
     }
 
-    val hadiths = remember {
+    val sampleHadiths = remember {
         listOf(
             HadithItem(
                 id = "1",
@@ -128,6 +128,37 @@ internal fun HadithLibraryScreen(
                 referenceUrl = "https://sunnah.com/riyadussalihin/introduction/27"
             )
         )
+    }
+
+    var hadiths by remember { mutableStateOf(sampleHadiths) }
+
+    LaunchedEffect(appLanguage) {
+        val localRecords = withContext(Dispatchers.IO) {
+            runCatching {
+                IslamicContentDatabase.get(ctx).getVerifiedHadiths(languageCode = appLanguage.code)
+            }.getOrDefault(emptyList())
+        }
+        if (localRecords.isNotEmpty()) {
+            hadiths = localRecords.map { record ->
+                val collectionTitle = if (record.collectionId == "sahih_al_bukhari") {
+                    "Sahih al-Bukhari"
+                } else {
+                    "Sahih Muslim"
+                }
+                HadithItem(
+                    id = record.id,
+                    book = collectionTitle,
+                    chapter = record.chapterTitle ?: record.bookTitle,
+                    hadithNumber = record.id,
+                    narrator = record.narrator.orEmpty(),
+                    arabic = record.arabicText,
+                    english = if (appLanguage == AppLanguage.ENGLISH) record.translation.orEmpty() else "",
+                    urdu = if (appLanguage == AppLanguage.URDU) record.translation.orEmpty() else "",
+                    topic = record.bookTitle,
+                    referenceUrl = ""
+                )
+            }
+        }
     }
 
     val filtered = remember(searchQuery, selectedBook) {
