@@ -3,6 +3,7 @@ package com.noorehidayat.app
 import android.content.Context
 import java.io.IOException
 import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.delay
 import kotlinx.coroutines.withContext
 import org.json.JSONObject
 import java.net.HttpURLConnection
@@ -149,9 +150,21 @@ object QuranDataService {
     suspend fun downloadAllSurahs(context: Context, onProgress: (Int) -> Unit): Int {
         var completed = 0
         for (surah in allSurahs) {
-            getSurahBatch(context, surah.number)
+            var attempt = 0
+            while (true) {
+                try {
+                    getSurahBatch(context, surah.number)
+                    break
+                } catch (error: Exception) {
+                    attempt++
+                    if (attempt >= 3) throw error
+                    delay(1000L * attempt)
+                }
+            }
             completed++
             onProgress(completed)
+            // Avoid sending 114 back-to-back requests to the public Quran data service.
+            delay(200L)
         }
         return completed
     }
