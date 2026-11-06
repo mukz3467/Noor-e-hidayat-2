@@ -139,7 +139,8 @@ data class HisnDuaItem(
     val urdu: String,
     val reference: String,
     val virtue: String,
-    val recommendedCount: Int = 1
+    val recommendedCount: Int = 1,
+    val referenceUrl: String = ""
 )
 
 // --- Feature 3: Authentic Hadith Models ---
