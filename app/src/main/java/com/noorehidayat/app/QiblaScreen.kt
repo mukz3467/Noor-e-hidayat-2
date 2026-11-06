@@ -81,7 +81,9 @@ internal fun QiblaScreen(appLanguage: AppLanguage = AppLanguage.ENGLISH) {
             for (p in providers) {
                 try {
                     val l = locationManager.getLastKnownLocation(p)
-                    if (l != null && (bestLoc == null || l.time > bestLoc.time)) {
+                    val ageMs = l?.let { System.currentTimeMillis() - it.time } ?: Long.MAX_VALUE
+                    if (l != null && ageMs in 0..21_600_000L &&
+                        (bestLoc == null || l.time > bestLoc!!.time)) {
                         bestLoc = l
                     }
                 } catch (_: SecurityException) {}
@@ -92,7 +94,11 @@ internal fun QiblaScreen(appLanguage: AppLanguage = AppLanguage.ENGLISH) {
             } else {
                 coordinates = null
                 locationError = "Waiting for a fresh device location…"
-                val provider = providers.firstOrNull()
+                val provider = when {
+                    LocationManager.NETWORK_PROVIDER in providers -> LocationManager.NETWORK_PROVIDER
+                    LocationManager.GPS_PROVIDER in providers -> LocationManager.GPS_PROVIDER
+                    else -> providers.firstOrNull()
+                }
                 if (provider != null) {
                     locationManager.requestSingleUpdate(provider, object : LocationListener {
                         override fun onLocationChanged(location: Location) {
