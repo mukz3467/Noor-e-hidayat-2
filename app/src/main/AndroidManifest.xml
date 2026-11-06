@@ -53,6 +53,10 @@
             android:enabled="true"
             android:exported="false" />
 
+        <receiver android:name="com.noorehidayat.app.StarterMediaDownloadReceiver" android:enabled="true" android:exported="false">
+            <intent-filter><action android:name="android.intent.action.DOWNLOAD_COMPLETE" /></intent-filter>
+        </receiver>
+
         <activity
             android:name="com.noorehidayat.app.MainActivity"
             android:configChanges="orientation|screenSize|keyboardHidden"
