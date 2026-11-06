@@ -63,7 +63,7 @@ internal object IslamicContentImporter {
         val tafsirEditions = editionById.values.filter { it.optString("contentType") == "tafsir" }
         val tafsir = root.optJSONArray("tafsirEntries") ?: JSONArray()
         validateTafsirRecords(tafsir, editionById)
-        require(tafsir.length() == 0 || tafsirEditions.isNotEmpty()) {
+        require(tafsir.length() == 0 || tafsirEditions.size > 0) {
             "Tafsir entries require at least one separately attributed tafsir edition."
         }
 
