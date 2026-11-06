@@ -119,10 +119,29 @@ internal object PrayerReminderScheduler {
         createChannel(context)
         val openApp = context.packageManager.getLaunchIntentForPackage(context.packageName)
         val contentIntent = openApp?.let { PendingIntent.getActivity(context, 5001, it, PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE) }
+        val languageCode = context.getSharedPreferences("noor_prefs", 0).getString("noor_app_lang", "ur") ?: "ur"
+        val prayerLabel = when (languageCode) {
+            "ur" -> mapOf("Fajr" to "فجر", "Dhuhr" to "ظہر", "Asr" to "عصر", "Maghrib" to "مغرب", "Isha" to "عشاء")[name] ?: name
+            "ar" -> mapOf("Fajr" to "الفجر", "Dhuhr" to "الظهر", "Asr" to "العصر", "Maghrib" to "المغرب", "Isha" to "العشاء")[name] ?: name
+            "hi" -> mapOf("Fajr" to "फ़ज्र", "Dhuhr" to "ज़ुहर", "Asr" to "असर", "Maghrib" to "मग़रिब", "Isha" to "इशा")[name] ?: name
+            else -> name
+        }
+        val notificationTitle = when (languageCode) {
+            "ur" -> "$prayerLabel کی نماز کا وقت"
+            "ar" -> "حان وقت صلاة $prayerLabel"
+            "hi" -> "$prayerLabel की नमाज़ का समय"
+            else -> "$name prayer time"
+        }
+        val notificationText = when (languageCode) {
+            "ur" -> "نماز ادا کرنے کا وقت ہو گیا ہے۔"
+            "ar" -> "حان وقت الصلاة، بادر إلى أدائها."
+            "hi" -> "नमाज़ अदा करने का समय हो गया है।"
+            else -> "It is time for $name. Take a moment for prayer."
+        }
         val notification = NotificationCompat.Builder(context, CHANNEL_ID)
             .setSmallIcon(android.R.drawable.ic_lock_idle_alarm)
-            .setContentTitle("$name prayer time")
-            .setContentText("It is time for $name. Take a moment for prayer.")
+            .setContentTitle(notificationTitle)
+            .setContentText(notificationText)
             .setPriority(NotificationCompat.PRIORITY_DEFAULT)
             .setAutoCancel(true)
             .setContentIntent(contentIntent)
