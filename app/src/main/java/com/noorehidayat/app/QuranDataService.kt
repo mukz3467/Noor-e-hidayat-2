@@ -1,6 +1,7 @@
 package com.noorehidayat.app
 
 import android.content.Context
+import java.io.IOException
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
 import org.json.JSONObject
@@ -141,7 +142,9 @@ object QuranDataService {
     )
 
     suspend fun getSurahBatch(context: Context, surahNumber: Int): List<Ayah> = withContext(Dispatchers.IO) {
-        memCache[surahNumber]?.let { return@withContext it }
+        val expectedAyahCount = allSurahs.firstOrNull { it.number == surahNumber }?.ayahCount
+            ?: throw IllegalArgumentException("Unknown Surah number: $surahNumber")
+        memCache[surahNumber]?.takeIf { it.size == expectedAyahCount }?.let { return@withContext it }
 
         val prefs = context.getSharedPreferences("noor_quran_cache", Context.MODE_PRIVATE)
         val cacheKey = "noor_ayahs_v3_$surahNumber"
@@ -149,7 +152,7 @@ object QuranDataService {
         if (!cached.isNullOrBlank()) {
             try {
                 val list = parseBatchResponse(cached, surahNumber)
-                if (list.isNotEmpty()) {
+                if (list.size == expectedAyahCount) {
                     memCache[surahNumber] = list
                     return@withContext list
                 }
@@ -165,7 +168,7 @@ object QuranDataService {
             if (conn.responseCode in 200..299) {
                 val raw = conn.inputStream.bufferedReader().use { it.readText() }
                 val list = parseBatchResponse(raw, surahNumber)
-                if (list.isNotEmpty()) {
+                if (list.size == expectedAyahCount) {
                     prefs.edit().putString(cacheKey, raw).apply()
                     memCache[surahNumber] = list
                     return@withContext list
@@ -176,10 +179,8 @@ object QuranDataService {
             conn.disconnect()
         }
 
-        // Fallback: If network fails, provide curated initial Ayahs so app never crashes
-        val fallback = getFallbackAyahs(surahNumber)
-        memCache[surahNumber] = fallback
-        return@withContext fallback
+        // Never present a partial or fabricated Surah as the complete Quran.
+        throw IOException("The complete Surah is not available offline. Connect to the internet once to download and cache it.")
     }
 
     private fun parseBatchResponse(raw: String, surahNumber: Int): List<Ayah> {
@@ -210,14 +211,20 @@ object QuranDataService {
             }
         }
 
+        val expectedAyahCount = allSurahs.firstOrNull { it.number == surahNumber }?.ayahCount
+            ?: throw IllegalArgumentException("Unknown Surah number: $surahNumber")
         val count = uthmaniAyahs.size
+        if (count != expectedAyahCount || uthmaniAyahs.any { it.isBlank() }) {
+            throw IOException("Incomplete Quran response for Surah $surahNumber: expected $expectedAyahCount ayahs, received $count.")
+        }
         val result = mutableListOf<Ayah>()
         val contextNote = shanENuzulMap[surahNumber] ?: ""
 
         for (idx in 0 until count) {
             val num = idx + 1
             val arabicText = uthmaniAyahs.getOrNull(idx) ?: ""
-            val words = generateWords(arabicText)
+            // Word meanings must come from a verified word-by-word dataset.
+            val words = emptyList<WordMeaning>()
 
             result.add(
                 Ayah(
