@@ -52,7 +52,6 @@ import androidx.media3.exoplayer.ExoPlayer
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
-import kotlinx.coroutines.launch
 
 /** Bundled Amiri Naskh typeface used for Quranic Arabic text and Surah names. */
 private val QuranArabicFont = FontFamily(
