@@ -123,11 +123,7 @@ internal fun PrayerTimesScreen(appLanguage: AppLanguage = AppLanguage.ENGLISH) {
                 } catch (_: SecurityException) {}
             }
             if (loc == null) {
-                // Use default coordinates (e.g. Islamabad/Lahore 31.5204, 74.3587 or Makkah 21.4225, 39.8262)
-                loc = Location("default").apply {
-                    latitude = 31.5204
-                    longitude = 74.3587
-                }
+                error = "No recent device location is available. Enable location services and retry."
             }
         } catch (_: Exception) {
             error = "Unable to read device location."
@@ -137,7 +133,9 @@ internal fun PrayerTimesScreen(appLanguage: AppLanguage = AppLanguage.ENGLISH) {
     val launcher = rememberLauncherForActivityResult(ActivityResultContracts.RequestMultiplePermissions()) { r ->
         allowed = r.values.any { it }
         if (allowed) locate() else {
-            loc = Location("default").apply { latitude = 31.5204; longitude = 74.3587 }
+            loc = null
+            rows = emptyList()
+            error = "Location permission is required for local prayer times."
         }
     }
 
@@ -147,7 +145,14 @@ internal fun PrayerTimesScreen(appLanguage: AppLanguage = AppLanguage.ENGLISH) {
     }
 
     LaunchedEffect(loc?.latitude, loc?.longitude, method, school) {
-        val l = loc ?: Location("default").apply { latitude = 31.5204; longitude = 74.3587 }
+        val l = loc
+        if (l == null) {
+            rows = emptyList()
+            dateText = ""
+            loading = false
+            if (error.isBlank()) error = "Enable location and grant permission to calculate prayer times."
+            return@LaunchedEffect
+        }
         loading = true
         error = ""
         try {
@@ -164,7 +169,8 @@ internal fun PrayerTimesScreen(appLanguage: AppLanguage = AppLanguage.ENGLISH) {
                 PrayerRow("Maghrib", astro.maghrib, "المغرب", "مغرب"),
                 PrayerRow("Isha", astro.isha, "العشاء", "عشاء")
             )
-            dateText = astro.dateReadable
+            dateText = astro.dateReadable + " · Approximate offline solar calculation; method-specific angles are not applied."
+            error = "Online calculation unavailable. Offline times are estimates; verify with your local mosque."
         } finally {
             loading = false
         }
