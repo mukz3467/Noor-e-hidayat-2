@@ -55,6 +55,7 @@ class MainActivity : ComponentActivity() {
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
+        MediaAssetManager.ensureStarterDownloads(this)
         setContent {
             NoorApp()
         }
@@ -120,13 +121,13 @@ private fun NoorApp() {
         activeQari = qari
         selectedSurah = surah
         isAudioBarVisible = true
-        currentCdnIndex = 0
-
         val urls = QarisAudioService.getAudioUrls(qari, surah.number)
+        val cachedAudio = if (qari.id == "alafasy") MediaAssetManager.cachedSurahUri(ctx, surah.number) else null
+        currentCdnIndex = if (cachedAudio != null) -1 else 0
         if (urls.isNotEmpty()) {
             exoPlayer.stop()
             exoPlayer.clearMediaItems()
-            exoPlayer.setMediaItem(MediaItem.fromUri(urls[0]))
+            exoPlayer.setMediaItem(MediaItem.fromUri(cachedAudio ?: Uri.parse(urls[0])))
             exoPlayer.prepare()
             exoPlayer.play()
             isPlayingAudio = true
@@ -394,17 +395,6 @@ private fun NoorApp() {
                     currentLanguage = appLanguage,
                     onNavigateBack = { currentPage = "More" }
                 )
-                "Calligraphy Gallery" -> {
-                    LaunchedEffect(Unit) {
-                        ctx.startActivity(
-                            Intent(
-                                Intent.ACTION_VIEW,
-                                Uri.parse("https://freeislamiccalligraphy.com/all-quran/es")
-                            )
-                        )
-                        currentPage = "More"
-                    }
-                }
                 "Live" -> LiveHarameynScreen(
                     appLanguage = appLanguage,
                     isTheaterMode = isTheaterMode,
@@ -1335,8 +1325,10 @@ private fun InAppVideoPlayer(
                 webChromeClient = WebChromeClient()
                 webViewClient = object : WebViewClient() {
                     override fun shouldOverrideUrlLoading(view: WebView?, request: WebResourceRequest?): Boolean {
-                        // Strictly block all external links and navigation so user stays inside the app!
-                        return true
+                        val host = request?.url?.host?.lowercase().orEmpty()
+                        val allowed = host == "youtube.com" || host.endsWith(".youtube.com") ||
+                            host == "youtube-nocookie.com" || host.endsWith(".youtube-nocookie.com")
+                        return !allowed
                     }
                 }
                 tag = videoId
@@ -1428,25 +1420,6 @@ private fun LiveHarameynScreen(
                     fontSize = 12.sp,
                     modifier = Modifier.padding(top = 4.dp, bottom = 8.dp)
                 )
-                OutlinedButton(
-                    onClick = {
-                        val channelId = selectedStream.youtubeId.removePrefix("channel:")
-                        context.startActivity(
-                            Intent(
-                                Intent.ACTION_VIEW,
-                                Uri.parse("https://www.youtube.com/channel/$channelId/live")
-                            )
-                        )
-                    },
-                    colors = ButtonDefaults.outlinedButtonColors(contentColor = Gold),
-                    border = BorderStroke(1.dp, Border),
-                    shape = RoundedCornerShape(10.dp)
-                ) {
-                    Icon(Icons.Default.OpenInNew, contentDescription = null, modifier = Modifier.size(16.dp))
-                    Spacer(Modifier.width(6.dp))
-                    Text(if (appLanguage == AppLanguage.URDU) "یوٹیوب پر کھولیں" else "Open official channel on YouTube")
-                }
-
                 Text(
                     "OFFICIAL SAUDI BROADCAST CHANNELS",
                     color = Gold,
@@ -1504,6 +1477,8 @@ private fun IslamicLecturesScreen(
 ) {
     var selectedCategory by remember { mutableStateOf("All Topics") }
     var selectedScholar by remember { mutableStateOf("All Scholars") }
+    var videoQuery by remember { mutableStateOf("") }
+    var activeSearch by remember { mutableStateOf("") }
 
     val filtered = remember(selectedCategory, selectedScholar) {
         IslamicContentData.curatedLectures.filter {
@@ -1512,30 +1487,16 @@ private fun IslamicLecturesScreen(
         }
     }
 
-    Column(
-        Modifier
-            .fillMaxSize()
-            .background(Emerald)
-    ) {
-        // Video Player
+    Column(Modifier.fillMaxSize().background(Emerald)) {
         Box(
-            modifier = Modifier
-                .fillMaxWidth()
+            modifier = Modifier.fillMaxWidth()
                 .height(if (isTheaterMode) 380.dp else 220.dp)
                 .background(Color.Black)
         ) {
-            InAppVideoPlayer(
-                videoId = selectedLecture.youtubeId,
-                modifier = Modifier.fillMaxSize()
-            )
-
-
-
+            InAppVideoPlayer(videoId = selectedLecture.youtubeId, modifier = Modifier.fillMaxSize())
             IconButton(
                 onClick = onToggleTheater,
-                modifier = Modifier
-                    .align(Alignment.TopEnd)
-                    .padding(8.dp)
+                modifier = Modifier.align(Alignment.TopEnd).padding(8.dp)
                     .background(Color.Black.copy(alpha = 0.6f), CircleShape)
             ) {
                 Icon(if (isTheaterMode) Icons.Default.FullscreenExit else Icons.Default.Fullscreen, null, tint = Gold)
@@ -1543,76 +1504,90 @@ private fun IslamicLecturesScreen(
         }
 
         if (!isTheaterMode) {
-            Column(
-                Modifier
-                    .fillMaxSize()
-                    .padding(horizontal = 16.dp, vertical = 10.dp)
-            ) {
+            Column(Modifier.fillMaxSize().padding(horizontal = 16.dp, vertical = 10.dp)) {
                 Text(selectedLecture.title, color = Cream, fontWeight = FontWeight.Bold, fontSize = 16.sp)
-                Text("${selectedLecture.speaker} · ${selectedLecture.category} · ${selectedLecture.duration}", color = Gold, fontSize = 12.sp, modifier = Modifier.padding(top = 2.dp, bottom = 8.dp))
-
-                // Topic Categories
-                LazyRow(horizontalArrangement = Arrangement.spacedBy(6.dp)) {
-                    items(IslamicContentData.lectureCategories) { cat ->
-                        FilterChip(
-                            selected = selectedCategory == cat,
-                            onClick = { selectedCategory = cat },
-                            label = { Text(cat, fontSize = 11.sp) },
-                            colors = FilterChipDefaults.filterChipColors(
-                                selectedContainerColor = Gold,
-                                selectedLabelColor = Emerald,
-                                containerColor = Panel,
-                                labelColor = Cream
-                            )
+                Text(
+                    "${selectedLecture.speaker} · ${selectedLecture.category} · ${selectedLecture.duration}",
+                    color = Gold, fontSize = 12.sp, modifier = Modifier.padding(top = 2.dp, bottom = 8.dp)
+                )
+                Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                    OutlinedTextField(
+                        value = videoQuery,
+                        onValueChange = { videoQuery = it },
+                        modifier = Modifier.weight(1f),
+                        singleLine = true,
+                        placeholder = { Text(if (appLanguage == AppLanguage.URDU) "اسلامی ویڈیو تلاش کریں" else "Search Islamic videos", color = Muted) },
+                        colors = OutlinedTextFieldDefaults.colors(
+                            focusedTextColor = Cream, unfocusedTextColor = Cream,
+                            focusedBorderColor = Gold, unfocusedBorderColor = Border, cursorColor = Gold
                         )
+                    )
+                    IconButton(
+                        onClick = { activeSearch = videoQuery.trim() },
+                        enabled = videoQuery.isNotBlank(),
+                        modifier = Modifier.background(Panel, RoundedCornerShape(10.dp))
+                    ) {
+                        Icon(Icons.Default.Search, contentDescription = "Search videos", tint = Gold)
                     }
                 }
 
-                Spacer(Modifier.height(6.dp))
-
-                // Scholars Chips
-                LazyRow(horizontalArrangement = Arrangement.spacedBy(6.dp)) {
-                    items(IslamicContentData.scholars) { scholar ->
-                        FilterChip(
-                            selected = selectedScholar == scholar,
-                            onClick = { selectedScholar = scholar },
-                            label = { Text(scholar, fontSize = 11.sp) },
-                            colors = FilterChipDefaults.filterChipColors(
-                                selectedContainerColor = Gold,
-                                selectedLabelColor = Emerald,
-                                containerColor = Panel,
-                                labelColor = Cream
-                            )
+                if (activeSearch.isNotBlank()) {
+                    Row(verticalAlignment = Alignment.CenterVertically, modifier = Modifier.fillMaxWidth()) {
+                        Text(
+                            if (appLanguage == AppLanguage.URDU) "تلاش کے نتائج: $activeSearch" else "Results for: $activeSearch",
+                            color = Gold, fontSize = 11.sp, modifier = Modifier.weight(1f)
                         )
+                        TextButton(onClick = { activeSearch = ""; videoQuery = "" }) {
+                            Text(if (appLanguage == AppLanguage.URDU) "بند کریں" else "Close search", color = Gold)
+                        }
                     }
-                }
-
-                LazyColumn(
-                    verticalArrangement = Arrangement.spacedBy(8.dp),
-                    contentPadding = PaddingValues(top = 10.dp, bottom = 20.dp),
-                    modifier = Modifier.weight(1f)
-                ) {
-                    items(filtered) { lecture ->
-                        val isCurrent = lecture.id == selectedLecture.id
-                        Card(
-                            modifier = Modifier
-                                .fillMaxWidth()
-                                .clickable { onSelectLecture(lecture) },
-                            shape = RoundedCornerShape(14.dp),
-                            colors = CardDefaults.cardColors(containerColor = if (isCurrent) Deep else Panel),
-                            border = BorderStroke(1.dp, if (isCurrent) Gold else Border)
-                        ) {
-                            Row(
-                                modifier = Modifier
-                                    .fillMaxWidth()
-                                    .padding(12.dp),
-                                verticalAlignment = Alignment.CenterVertically
+                    YouTubeSearchWebView(query = activeSearch, modifier = Modifier.fillMaxWidth().weight(1f))
+                } else {
+                    LazyRow(horizontalArrangement = Arrangement.spacedBy(6.dp)) {
+                        items(IslamicContentData.lectureCategories) { cat ->
+                            FilterChip(
+                                selected = selectedCategory == cat, onClick = { selectedCategory = cat },
+                                label = { Text(cat, fontSize = 11.sp) },
+                                colors = FilterChipDefaults.filterChipColors(
+                                    selectedContainerColor = Gold, selectedLabelColor = Emerald,
+                                    containerColor = Panel, labelColor = Cream
+                                )
+                            )
+                        }
+                    }
+                    Spacer(Modifier.height(6.dp))
+                    LazyRow(horizontalArrangement = Arrangement.spacedBy(6.dp)) {
+                        items(IslamicContentData.scholars) { scholar ->
+                            FilterChip(
+                                selected = selectedScholar == scholar, onClick = { selectedScholar = scholar },
+                                label = { Text(scholar, fontSize = 11.sp) },
+                                colors = FilterChipDefaults.filterChipColors(
+                                    selectedContainerColor = Gold, selectedLabelColor = Emerald,
+                                    containerColor = Panel, labelColor = Cream
+                                )
+                            )
+                        }
+                    }
+                    LazyColumn(
+                        verticalArrangement = Arrangement.spacedBy(8.dp),
+                        contentPadding = PaddingValues(top = 10.dp, bottom = 20.dp),
+                        modifier = Modifier.weight(1f)
+                    ) {
+                        items(filtered) { lecture ->
+                            val isCurrent = lecture.id == selectedLecture.id
+                            Card(
+                                modifier = Modifier.fillMaxWidth().clickable { onSelectLecture(lecture) },
+                                shape = RoundedCornerShape(14.dp),
+                                colors = CardDefaults.cardColors(containerColor = if (isCurrent) Deep else Panel),
+                                border = BorderStroke(1.dp, if (isCurrent) Gold else Border)
                             ) {
-                                Icon(Icons.Default.PlayCircle, null, tint = Gold, modifier = Modifier.size(28.dp))
-                                Spacer(Modifier.width(12.dp))
-                                Column(Modifier.weight(1f)) {
-                                    Text(lecture.title, color = Cream, fontWeight = FontWeight.Bold, fontSize = 13.sp, maxLines = 1, overflow = TextOverflow.Ellipsis)
-                                    Text("${lecture.speaker} · ${lecture.duration}", color = Muted, fontSize = 11.sp)
+                                Row(Modifier.fillMaxWidth().padding(12.dp), verticalAlignment = Alignment.CenterVertically) {
+                                    Icon(Icons.Default.PlayCircle, null, tint = Gold, modifier = Modifier.size(28.dp))
+                                    Spacer(Modifier.width(12.dp))
+                                    Column(Modifier.weight(1f)) {
+                                        Text(lecture.title, color = Cream, fontWeight = FontWeight.Bold, fontSize = 13.sp, maxLines = 1, overflow = TextOverflow.Ellipsis)
+                                        Text("${lecture.speaker} · ${lecture.duration}", color = Muted, fontSize = 11.sp)
+                                    }
                                 }
                             }
                         }
@@ -1621,6 +1596,38 @@ private fun IslamicLecturesScreen(
             }
         }
     }
+}
+
+@Composable
+private fun YouTubeSearchWebView(query: String, modifier: Modifier = Modifier) {
+    AndroidView(
+        factory = { context ->
+            WebView(context).apply {
+                settings.javaScriptEnabled = true
+                settings.domStorageEnabled = true
+                settings.mediaPlaybackRequiresUserGesture = false
+                settings.userAgentString = "Mozilla/5.0 (Linux; Android 14; Mobile) AppleWebKit/537.36 Chrome/124.0.0.0 Mobile Safari/537.36"
+                webChromeClient = WebChromeClient()
+                webViewClient = object : WebViewClient() {
+                    override fun shouldOverrideUrlLoading(view: WebView?, request: WebResourceRequest?): Boolean {
+                        val host = request?.url?.host?.lowercase().orEmpty()
+                        val allowed = host == "youtube.com" || host.endsWith(".youtube.com") ||
+                            host == "youtube-nocookie.com" || host.endsWith(".youtube-nocookie.com")
+                        return !allowed
+                    }
+                }
+                tag = query
+                loadUrl("https://m.youtube.com/results?search_query=${Uri.encode(query)}")
+            }
+        },
+        update = { webView ->
+            if (webView.tag != query) {
+                webView.tag = query
+                webView.loadUrl("https://m.youtube.com/results?search_query=${Uri.encode(query)}")
+            }
+        },
+        modifier = modifier
+    )
 }
 
 // --- Daily Duas Screen ---
@@ -1838,7 +1845,6 @@ private fun MoreHubScreen(
             Triple(if (appLanguage == AppLanguage.URDU) "قرآن آف لائن ڈاؤن لوڈ کریں" else "Download Quran for offline reading", "Save all 114 Surahs and Urdu/English translations on this device", "Offline Quran"),
             Triple(if (appLanguage == AppLanguage.URDU) "روزانہ یاد دہانی" else "Daily Reminder", "Optional daily reminder at 9:00 AM local time", "Daily Reminder"),
             Triple(I18n.t("theme_settings", appLanguage), "12 themes, eye-comfort mode and custom colors", "Theme Settings"),
-            Triple(if (appLanguage == AppLanguage.URDU) "قرآنی خطاطی گیلری" else "Quran Calligraphy Gallery", "Open the publisher's original gallery; artwork is not copied into the app", "Calligraphy Gallery"),
             Triple(I18n.t("khatam_planner", appLanguage), "30-Day Goal, Prayer Targets & 30 Juz Tracker", "Khatam Planner"),
             Triple(I18n.t("ramadan_mode", appLanguage), "Sehar/Iftar Countdown, Daily Duas & Tarawih", "Ramadan Companion"),
             Triple(I18n.t("card_generator", appLanguage), "1-Click Luxury Ayah & Hadith Social Cards", "Social Card"),
