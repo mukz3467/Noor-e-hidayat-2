@@ -251,45 +251,5 @@ internal fun DailyReminderSettingsScreen(
         )
     }
 
-    if (showTimePicker) {
-        val timeState = rememberTimePickerState(
-            initialHour = reminderHour,
-            initialMinute = reminderMinute,
-            is24Hour = false
-        )
-        AlertDialog(
-            onDismissRequest = { showTimePicker = false },
-            title = {
-                Text(
-                    if (isUrdu) "یاد دہانی کا وقت منتخب کریں" else "Choose reminder time",
-                    color = Cream
-                )
-            },
-            text = {
-                TimePicker(state = timeState)
-            },
-            confirmButton = {
-                TextButton(
-                    onClick = {
-                        reminderHour = timeState.hour
-                        reminderMinute = timeState.minute
-                        prefs.edit()
-                            .putInt("daily_reminder_hour", reminderHour)
-                            .putInt("daily_reminder_minute", reminderMinute)
-                            .apply()
-                        if (enabled) DailyReminderScheduler.schedule(context)
-                        showTimePicker = false
-                    }
-                ) {
-                    Text(if (isUrdu) "محفوظ کریں" else "Save", color = Gold)
-                }
-            },
-            dismissButton = {
-                TextButton(onClick = { showTimePicker = false }) {
-                    Text(if (isUrdu) "منسوخ" else "Cancel", color = Muted)
-                }
-            },
-            containerColor = Panel
-        )
-    }
+
 }
