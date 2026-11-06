@@ -8,7 +8,6 @@ import android.widget.Toast
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.BorderStroke
-import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
@@ -23,7 +22,6 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import java.util.Locale
-import java.util.Locale
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -33,10 +31,9 @@ internal fun DailyReminderSettingsScreen(
 ) {
     val context = LocalContext.current
     val prefs = remember { context.getSharedPreferences("noor_prefs", Context.MODE_PRIVATE) }
+    val isUrdu = appLanguage == AppLanguage.URDU
+
     var enabled by remember { mutableStateOf(prefs.getBoolean("daily_reminder_enabled", false)) }
-    var reminderHour by remember { mutableIntStateOf(prefs.getInt("daily_reminder_hour", 9)) }
-    var reminderMinute by remember { mutableIntStateOf(prefs.getInt("daily_reminder_minute", 0)) }
-    var showTimePicker by remember { mutableStateOf(false) }
     var reminderHour by remember { mutableIntStateOf(prefs.getInt("daily_reminder_hour", 9)) }
     var reminderMinute by remember { mutableIntStateOf(prefs.getInt("daily_reminder_minute", 0)) }
     var showTimePicker by remember { mutableStateOf(false) }
@@ -44,11 +41,7 @@ internal fun DailyReminderSettingsScreen(
     fun persistReminder(value: Boolean) {
         enabled = value
         prefs.edit().putBoolean("daily_reminder_enabled", value).apply()
-        if (value) {
-            DailyReminderScheduler.schedule(context)
-        } else {
-            DailyReminderScheduler.cancel(context)
-        }
+        if (value) DailyReminderScheduler.schedule(context) else DailyReminderScheduler.cancel(context)
     }
 
     val permissionLauncher = rememberLauncherForActivityResult(
@@ -59,14 +52,13 @@ internal fun DailyReminderSettingsScreen(
         } else {
             Toast.makeText(
                 context,
-                if (appLanguage == AppLanguage.URDU) "یاد دہانی کے لیے نوٹیفکیشن کی اجازت ضروری ہے۔"
+                if (isUrdu) "یاد دہانی کے لیے نوٹیفکیشن کی اجازت ضروری ہے۔"
                 else "Notification permission is required for reminders.",
                 Toast.LENGTH_LONG
             ).show()
         }
     }
 
-    val isUrdu = appLanguage == AppLanguage.URDU
     val periodLabel = if (isUrdu) {
         if (reminderHour < 12) "صبح" else "شام"
     } else {
@@ -143,6 +135,7 @@ internal fun DailyReminderSettingsScreen(
                             }
                         )
                     }
+
                     Spacer(Modifier.height(12.dp))
                     Text(
                         if (isUrdu)
@@ -153,22 +146,7 @@ internal fun DailyReminderSettingsScreen(
                         fontSize = 13.sp,
                         lineHeight = 21.sp
                     )
-                    Spacer(Modifier.height(8.dp))
-                    Row(verticalAlignment = Alignment.CenterVertically) {
-                        Text(
-                            if (isUrdu) "یاد دہانی کا وقت" else "Reminder time",
-                            color = Muted,
-                            fontSize = 12.sp,
-                            modifier = Modifier.weight(1f)
-                        )
-                        TextButton(onClick = { showTimePicker = true }) {
-                            Text(
-                                if (isUrdu) "وقت تبدیل کریں" else "Change time",
-                                color = Gold,
-                                fontSize = 12.sp
-                            )
-                        }
-                    }
+
                     Spacer(Modifier.height(8.dp))
                     Row(verticalAlignment = Alignment.CenterVertically) {
                         Text(
@@ -223,9 +201,7 @@ internal fun DailyReminderSettingsScreen(
                     color = Cream
                 )
             },
-            text = {
-                TimePicker(state = timeState)
-            },
+            text = { TimePicker(state = timeState) },
             confirmButton = {
                 TextButton(
                     onClick = {
@@ -250,6 +226,4 @@ internal fun DailyReminderSettingsScreen(
             containerColor = Panel
         )
     }
-
-
 }
