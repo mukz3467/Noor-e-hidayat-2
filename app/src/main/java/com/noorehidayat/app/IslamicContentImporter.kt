@@ -76,7 +76,7 @@ internal object IslamicContentImporter {
         val chapters = root.optJSONArray("hadithChapters") ?: JSONArray()
         val hadiths = root.optJSONArray("hadithRecords") ?: JSONArray()
         val hadithTranslations = root.optJSONArray("hadithTranslations") ?: JSONArray()
-        validateHadiths(collections, books, hadiths, hadithTranslations, editionById)
+        validateHadiths(collections, books, chapters, hadiths, hadithTranslations, editionById)
 
         val db = IslamicContentDatabase.get(context).writableDatabase
         db.beginTransaction()
@@ -192,49 +192,122 @@ internal object IslamicContentImporter {
     private fun validateHadiths(
         collections: JSONArray,
         books: JSONArray,
+        chapters: JSONArray,
         hadiths: JSONArray,
         translations: JSONArray,
         editions: Map<String, JSONObject>
     ) {
-        val collectionIds = (0 until collections.length()).map {
-            collections.getJSONObject(it).required("collectionId")
-        }.toSet()
-        require(collectionIds == setOf("sahih_al_bukhari", "sahih_muslim")) {
-            "Hadith release must include both Sahih al-Bukhari and Sahih Muslim collections."
+        val collectionRows = (0 until collections.length()).map { collections.getJSONObject(it) }
+        val collectionIds = collectionRows.map { it.required("collectionId") }
+        require(collectionIds.toSet() == setOf("sahih_al_bukhari", "sahih_al_muslim") &&
+            collectionIds.size == 2) {
+            "Hadith release must contain exactly one Bukhari and one Muslim collection record."
         }
-        require(books.length() > 0 && hadiths.length() > 0) { "Hadith release has no books or narrations." }
-        for (index in 0 until collections.length()) {
-            val collection = collections.getJSONObject(index)
+        val collectionById = collectionRows.associateBy { it.required("collectionId") }
+        collectionRows.forEach { collection ->
+            val id = collection.required("collectionId")
             val sourceEdition = editions[collection.required("sourceEditionId")]
-                ?: error("Hadith collection references an unknown source edition.")
+                ?: error("Hadith collection '$id' references an unknown source edition.")
             require(sourceEdition.optString("contentType") == "hadith_source") {
-                "Hadith collection source must use a hadith_source edition."
+                "Hadith collection '$id' must reference a hadith_source edition."
+            }
+            require(collection.required("numberingScheme").isNotBlank()) {
+                "Hadith collection '$id' must declare its edition-specific numbering scheme."
+            }
+            require(collection.optInt("expectedBookCount") > 0 &&
+                collection.optInt("expectedNarrationCount") > 0) {
+                "Hadith collection '$id' must declare positive expected book and narration counts."
             }
         }
-        setOf("sahih_al_bukhari", "sahih_muslim").forEach { collectionId ->
-            require(hadiths.countObjects { it.optString("collectionId") == collectionId } > 0) {
-                "Hadith release has no narrations for $collectionId."
+
+        val bookRows = (0 until books.length()).map { books.getJSONObject(it) }
+        val bookById = bookRows.associateBy { it.required("bookId") }
+        require(bookById.size == bookRows.size && bookRows.isNotEmpty()) {
+            "Hadith book identifiers must be unique and both collections must include their books."
+        }
+        bookRows.forEach { book ->
+            require(book.required("collectionId") in collectionById) {
+                "Hadith book references an unknown collection."
+            }
+            require(book.required("bookNumber").isNotBlank() && book.required("bookTitle").isNotBlank()) {
+                "Hadith book number and title are required."
             }
         }
-        val bookIds = (0 until books.length()).map { books.getJSONObject(it).required("bookId") }.toSet()
+
+        val chapterRows = (0 until chapters.length()).map { chapters.getJSONObject(it) }
+        val chapterById = chapterRows.associateBy { it.required("chapterId") }
+        require(chapterById.size == chapterRows.size) { "Hadith chapter identifiers must be unique." }
+        chapterRows.forEach { chapter ->
+            require(chapter.required("bookId") in bookById) {
+                "Hadith chapter references an unknown book."
+            }
+            require(chapter.required("chapterTitle").isNotBlank()) {
+                "Hadith chapter title is missing."
+            }
+        }
+
+        val hadithRows = (0 until hadiths.length()).map { hadiths.getJSONObject(it) }
+        require(hadithRows.isNotEmpty()) { "Hadith release contains no narrations." }
         val hadithIds = mutableSetOf<String>()
-        for (index in 0 until hadiths.length()) {
-            val row = hadiths.getJSONObject(index)
-            require(row.required("collectionId") in collectionIds) { "Unknown Hadith collection." }
-            require(row.required("bookId") in bookIds) { "Hadith references an unknown book." }
+        val countsByCollection = mutableMapOf<String, Int>()
+        val booksWithNarrations = mutableSetOf<String>()
+        hadithRows.forEach { row ->
+            val collectionId = row.required("collectionId")
+            require(collectionId in collectionById) { "Unknown Hadith collection '$collectionId'." }
+            val bookId = row.required("bookId")
+            val book = bookById[bookId] ?: error("Hadith references an unknown book '$bookId'.")
+            require(book.required("collectionId") == collectionId) {
+                "Hadith collection does not match its referenced book."
+            }
+            val chapterId = row.optString("chapterId")
+            if (chapterId.isNotBlank()) {
+                val chapter = chapterById[chapterId] ?: error("Hadith references an unknown chapter '$chapterId'.")
+                require(chapter.required("bookId") == bookId) {
+                    "Hadith chapter does not belong to its referenced book."
+                }
+            }
             require(row.required("arabicText").isNotBlank()) { "Hadith Arabic text is blank." }
             require(row.required("sourceLocator").isNotBlank()) { "Hadith source locator is missing." }
             require(row.required("reviewStatus") == VERIFIED) { "Hadith record has not passed release review." }
             require(hadithIds.add(row.required("hadithId"))) { "Duplicate Hadith ID." }
+            countsByCollection[collectionId] = (countsByCollection[collectionId] ?: 0) + 1
+            booksWithNarrations += bookId
         }
+
+        collectionRows.forEach { collection ->
+            val id = collection.required("collectionId")
+            val expectedBooks = collection.optInt("expectedBookCount")
+            val actualBooks = bookRows.count { it.optString("collectionId") == id }
+            val expectedNarrations = collection.optInt("expectedNarrationCount")
+            val actualNarrations = countsByCollection[id] ?: 0
+            require(actualBooks == expectedBooks) {
+                "Collection '$id' has $actualBooks books; expected $expectedBooks for its pinned edition."
+            }
+            require(actualNarrations == expectedNarrations) {
+                "Collection '$id' has $actualNarrations narrations; expected $expectedNarrations for its pinned edition."
+            }
+            require(bookRows.filter { it.optString("collectionId") == id }
+                .all { booksWithNarrations.contains(it.required("bookId")) }) {
+                "Collection '$id' contains a book with no narrations."
+            }
+        }
+
+        val translationKeys = mutableSetOf<String>()
         for (index in 0 until translations.length()) {
             val row = translations.getJSONObject(index)
-            require(row.required("hadithId") in hadithIds) { "Hadith translation references an unknown narration." }
-            val edition = editions[row.required("editionId")] ?: error("Unknown Hadith translation edition.")
+            val hadithId = row.required("hadithId")
+            require(hadithId in hadithIds) {
+                "Hadith translation references an unknown narration."
+            }
+            val editionId = row.required("editionId")
+            val edition = editions[editionId] ?: error("Unknown Hadith translation edition.")
             require(edition.optString("contentType") == "hadith_translation") {
                 "Hadith translation must reference a hadith_translation edition."
             }
             require(row.required("text").isNotBlank()) { "Hadith translation is blank." }
+            require(translationKeys.add("$hadithId:$editionId")) {
+                "Duplicate Hadith translation for narration '$hadithId' and edition '$editionId'."
+            }
         }
     }
 
