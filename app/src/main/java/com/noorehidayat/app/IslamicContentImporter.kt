@@ -1,0 +1,337 @@
+package com.noorehidayat.app
+
+import android.content.ContentValues
+import android.content.Context
+import android.database.sqlite.SQLiteDatabase
+import org.json.JSONArray
+import org.json.JSONObject
+import java.security.MessageDigest
+
+/**
+ * Installs a reviewed JSON release bundle from assets/islamic-library/release.json.
+ *
+ * This importer deliberately rejects incomplete or unlicensed bundles before it
+ * changes the database. The bundle is a build-time asset; no network/API key is
+ * required at runtime. No bundle is shipped by this change until its texts and
+ * redistribution permissions have been checked.
+ */
+internal object IslamicContentImporter {
+    data class ImportResult(
+        val quranAyahs: Int,
+        val translationRecords: Int,
+        val tafsirRecords: Int,
+        val bukhariNarrations: Int,
+        val muslimNarrations: Int
+    )
+
+    fun installBundledRelease(context: Context): ImportResult {
+        val raw = context.assets.open(RELEASE_ASSET).bufferedReader(Charsets.UTF_8).use { it.readText() }
+        val root = JSONObject(raw)
+        require(root.optInt("schemaVersion") == 1) { "Unsupported Islamic library release schema." }
+
+        val editions = root.getJSONArray("editions")
+        val editionById = validateEditions(editions)
+        val quran = root.getJSONArray("quranAyahs")
+        validateQuran(quran, editionById)
+
+        val translations = root.optJSONArray("translations") ?: JSONArray()
+        validateCompleteEditionRecords(translations, editionById, "translation")
+
+        val tafsir = root.optJSONArray("tafsirEntries") ?: JSONArray()
+        validateCompleteEditionRecords(tafsir, editionById, "tafsir")
+
+        val collections = root.optJSONArray("hadithCollections") ?: JSONArray()
+        val books = root.optJSONArray("hadithBooks") ?: JSONArray()
+        val chapters = root.optJSONArray("hadithChapters") ?: JSONArray()
+        val hadiths = root.optJSONArray("hadithRecords") ?: JSONArray()
+        val hadithTranslations = root.optJSONArray("hadithTranslations") ?: JSONArray()
+        validateHadiths(collections, books, hadiths, hadithTranslations, editionById)
+
+        val db = IslamicContentDatabase.get(context).writableDatabase
+        val result = db.runInTransaction<ImportResult> {
+            clearReleaseTables(db)
+            insertEditions(db, editions)
+            insertQuran(db, quran)
+            insertTranslations(db, translations)
+            insertTafsir(db, tafsir)
+            insertHadithCollections(db, collections)
+            insertHadithBooks(db, books)
+            insertHadithChapters(db, chapters)
+            insertHadithRecords(db, hadiths)
+            insertHadithTranslations(db, hadithTranslations)
+
+            val bukhari = hadiths.countObjects { it.optString("collectionId") == "sahih_al_bukhari" }
+            val muslim = hadiths.countObjects { it.optString("collectionId") == "sahih_muslim" }
+            ImportResult(quran.length(), translations.length(), tafsir.length(), bukhari, muslim)
+        }
+        return result
+    }
+
+    private fun validateEditions(editions: JSONArray): Map<String, JSONObject> {
+        require(editions.length() > 0) { "Release contains no content editions." }
+        val result = linkedMapOf<String, JSONObject>()
+        for (index in 0 until editions.length()) {
+            val edition = editions.getJSONObject(index)
+            val id = edition.required("editionId")
+            val language = edition.required("languageCode")
+            require(language in SUPPORTED_LANGUAGES) { "Unsupported language '$language' in edition '$id'." }
+            require(edition.required("contentType") in CONTENT_TYPES) { "Unsupported content type in edition '$id'." }
+            require(edition.required("sourceUrl").startsWith("https://")) { "Edition '$id' needs an HTTPS source URL." }
+            require(edition.required("licenseName").isNotBlank()) { "Edition '$id' has no license." }
+            require(edition.required("licenseEvidenceUrl").startsWith("https://")) { "Edition '$id' needs a license evidence URL." }
+            require(edition.required("publisher").isNotBlank()) { "Edition '$id' has no publisher/digitizer." }
+            require(edition.required("workTitle").isNotBlank()) { "Edition '$id' has no work title." }
+            require(edition.required("scholarName").isNotBlank()) { "Edition '$id' has no scholar/author." }
+            require(edition.required("editionVersion").isNotBlank()) { "Edition '$id' has no edition version." }
+            require(edition.required("sha256").matches(Regex("^[a-fA-F0-9]{64}$"))) { "Edition '$id' has an invalid SHA-256." }
+            require(edition.required("reviewStatus") == VERIFIED) { "Edition '$id' has not passed release review." }
+            require(result.put(id, edition) == null) { "Duplicate edition ID '$id'." }
+        }
+        return result
+    }
+
+    private fun validateQuran(quran: JSONArray, editions: Map<String, JSONObject>) {
+        require(quran.length() == EXPECTED_AYAHS) {
+            "Quran release must contain exactly $EXPECTED_AYAHS ayahs; found ${quran.length()}."
+        }
+        val surahCounts = mutableMapOf<Int, Int>()
+        val seen = mutableSetOf<String>()
+        for (index in 0 until quran.length()) {
+            val row = quran.getJSONObject(index)
+            val surah = row.optInt("surahNumber")
+            val ayah = row.optInt("ayahNumber")
+            val key = "$surah:$ayah"
+            require(surah in 1..114 && ayah > 0) { "Invalid Quran locator '$key'." }
+            require(row.required("arabicText").isNotBlank()) { "Arabic text is blank at $key." }
+            require(seen.add(key)) { "Duplicate Quran ayah '$key'." }
+            val edition = editions[row.required("editionId")]
+                ?: error("Quran ayah '$key' refers to an unknown edition.")
+            require(edition.optString("contentType") == "quran_text") { "Quran ayah '$key' must use a quran_text edition." }
+            surahCounts[surah] = (surahCounts[surah] ?: 0) + 1
+        }
+        require(surahCounts.size == 114) { "Quran release must include all 114 Surahs." }
+        QuranDataService.allSurahs.forEach { surah ->
+            require(surahCounts[surah.number] == surah.ayahs) {
+                "Surah ${surah.number} is incomplete in the release."
+            }
+        }
+        require(quran.getJSONObject(0).optInt("surahNumber") == 1 &&
+            quran.getJSONObject(0).optInt("ayahNumber") == 1) {
+            "Quran ayahs must be ordered from 1:1."
+        }
+    }
+
+    private fun validateCompleteEditionRecords(
+        records: JSONArray,
+        editions: Map<String, JSONObject>,
+        contentType: String
+    ) {
+        val counts = mutableMapOf<String, MutableSet<String>>()
+        for (index in 0 until records.length()) {
+            val row = records.getJSONObject(index)
+            val editionId = row.required("editionId")
+            val edition = editions[editionId] ?: error("Unknown edition '$editionId'.")
+            require(edition.optString("contentType") == contentType) {
+                "Edition '$editionId' is not a $contentType edition."
+            }
+            val surah = row.optInt("surahNumber")
+            val ayah = row.optInt("ayahNumber")
+            require(surah in 1..114 && ayah > 0) { "Invalid $contentType ayah locator $surah:$ayah." }
+            require(row.required("text").isNotBlank()) { "Blank $contentType text at $surah:$ayah." }
+            counts.getOrPut(editionId) { mutableSetOf() }.add("$surah:$ayah")
+        }
+        editions.forEach { (id, edition) ->
+            if (edition.optString("contentType") == contentType) {
+                require(counts[id]?.size == EXPECTED_AYAHS) {
+                    "Edition '$id' must contain all $EXPECTED_AYAHS ayah entries for $contentType."
+                }
+            }
+        }
+    }
+
+    private fun validateHadiths(
+        collections: JSONArray,
+        books: JSONArray,
+        hadiths: JSONArray,
+        translations: JSONArray,
+        editions: Map<String, JSONObject>
+    ) {
+        val collectionIds = (0 until collections.length()).map {
+            collections.getJSONObject(it).required("collectionId")
+        }.toSet()
+        require(collectionIds == setOf("sahih_al_bukhari", "sahih_muslim")) {
+            "Hadith release must include both Sahih al-Bukhari and Sahih Muslim collections."
+        }
+        require(books.length() > 0 && hadiths.length() > 0) { "Hadith release has no books or narrations." }
+        val bookIds = (0 until books.length()).map { books.getJSONObject(it).required("bookId") }.toSet()
+        val hadithIds = mutableSetOf<String>()
+        for (index in 0 until hadiths.length()) {
+            val row = hadiths.getJSONObject(index)
+            require(row.required("collectionId") in collectionIds) { "Unknown Hadith collection." }
+            require(row.required("bookId") in bookIds) { "Hadith references an unknown book." }
+            require(row.required("arabicText").isNotBlank()) { "Hadith Arabic text is blank." }
+            require(row.required("sourceLocator").isNotBlank()) { "Hadith source locator is missing." }
+            require(row.required("reviewStatus") == VERIFIED) { "Hadith record has not passed release review." }
+            require(hadithIds.add(row.required("hadithId"))) { "Duplicate Hadith ID." }
+        }
+        for (index in 0 until translations.length()) {
+            val row = translations.getJSONObject(index)
+            require(row.required("hadithId") in hadithIds) { "Hadith translation references an unknown narration." }
+            val edition = editions[row.required("editionId")] ?: error("Unknown Hadith translation edition.")
+            require(edition.optString("contentType") == "hadith_translation") {
+                "Hadith translation must reference a hadith_translation edition."
+            }
+            require(row.required("text").isNotBlank()) { "Hadith translation is blank." }
+        }
+    }
+
+    private fun clearReleaseTables(db: SQLiteDatabase) {
+        listOf(
+            "hadith_translations", "hadith_records", "hadith_chapters", "hadith_books",
+            "hadith_collections", "asbab_reports", "tafsir_entries", "quran_translations",
+            "quran_ayahs", "content_editions"
+        ).forEach { db.delete(it, null, null) }
+    }
+
+    private fun insertEditions(db: SQLiteDatabase, rows: JSONArray) {
+        for (i in 0 until rows.length()) {
+            val row = rows.getJSONObject(i)
+            db.insertOrThrow("content_editions", null, ContentValues().apply {
+                put("edition_id", row.required("editionId"))
+                put("content_type", row.required("contentType"))
+                put("work_title", row.required("workTitle"))
+                put("scholar_name", row.required("scholarName"))
+                put("translator_name", row.optString("translatorName").takeIf { it.isNotBlank() })
+                put("language_code", row.required("languageCode"))
+                put("publisher", row.required("publisher"))
+                put("source_url", row.required("sourceUrl"))
+                put("license_name", row.required("licenseName"))
+                put("license_evidence_url", row.required("licenseEvidenceUrl"))
+                put("edition_version", row.required("editionVersion"))
+                put("sha256", row.required("sha256"))
+                put("review_status", VERIFIED)
+            })
+        }
+    }
+
+    private fun insertQuran(db: SQLiteDatabase, rows: JSONArray) {
+        for (i in 0 until rows.length()) {
+            val row = rows.getJSONObject(i)
+            db.insertOrThrow("quran_ayahs", null, ContentValues().apply {
+                put("surah_number", row.optInt("surahNumber"))
+                put("ayah_number", row.optInt("ayahNumber"))
+                put("verse_key", row.required("surahNumber").toString() + ":" + row.required("ayahNumber"))
+                put("arabic_text", row.required("arabicText"))
+                put("edition_id", row.required("editionId"))
+            })
+        }
+    }
+
+    private fun insertTranslations(db: SQLiteDatabase, rows: JSONArray) {
+        for (i in 0 until rows.length()) {
+            val row = rows.getJSONObject(i)
+            db.insertOrThrow("quran_translations", null, ContentValues().apply {
+                put("edition_id", row.required("editionId"))
+                put("surah_number", row.optInt("surahNumber"))
+                put("ayah_number", row.optInt("ayahNumber"))
+                put("text", row.required("text"))
+            })
+        }
+    }
+
+    private fun insertTafsir(db: SQLiteDatabase, rows: JSONArray) {
+        for (i in 0 until rows.length()) {
+            val row = rows.getJSONObject(i)
+            db.insertOrThrow("tafsir_entries", null, ContentValues().apply {
+                put("edition_id", row.required("editionId"))
+                put("surah_number", row.optInt("surahNumber"))
+                put("ayah_number", row.optInt("ayahNumber"))
+                put("text", row.required("text"))
+                put("volume", row.optString("volume").takeIf { it.isNotBlank() })
+                put("page_locator", row.required("pageLocator"))
+                put("source_reference", row.required("sourceReference"))
+            })
+        }
+    }
+
+    private fun insertHadithCollections(db: SQLiteDatabase, rows: JSONArray) {
+        for (i in 0 until rows.length()) {
+            val row = rows.getJSONObject(i)
+            db.insertOrThrow("hadith_collections", null, ContentValues().apply {
+                put("collection_id", row.required("collectionId"))
+                put("collection_title", row.required("collectionTitle"))
+                put("source_edition_id", row.required("sourceEditionId"))
+            })
+        }
+    }
+
+    private fun insertHadithBooks(db: SQLiteDatabase, rows: JSONArray) {
+        for (i in 0 until rows.length()) {
+            val row = rows.getJSONObject(i)
+            db.insertOrThrow("hadith_books", null, ContentValues().apply {
+                put("book_id", row.required("bookId"))
+                put("collection_id", row.required("collectionId"))
+                put("book_number", row.required("bookNumber"))
+                put("book_title", row.required("bookTitle"))
+            })
+        }
+    }
+
+    private fun insertHadithChapters(db: SQLiteDatabase, rows: JSONArray) {
+        for (i in 0 until rows.length()) {
+            val row = rows.getJSONObject(i)
+            db.insertOrThrow("hadith_chapters", null, ContentValues().apply {
+                put("chapter_id", row.required("chapterId"))
+                put("book_id", row.required("bookId"))
+                put("chapter_number", row.optString("chapterNumber").takeIf { it.isNotBlank() })
+                put("chapter_title", row.required("chapterTitle"))
+            })
+        }
+    }
+
+    private fun insertHadithRecords(db: SQLiteDatabase, rows: JSONArray) {
+        for (i in 0 until rows.length()) {
+            val row = rows.getJSONObject(i)
+            db.insertOrThrow("hadith_records", null, ContentValues().apply {
+                put("hadith_id", row.required("hadithId"))
+                put("collection_id", row.required("collectionId"))
+                put("book_id", row.required("bookId"))
+                put("chapter_id", row.optString("chapterId").takeIf { it.isNotBlank() })
+                put("narrator", row.optString("narrator").takeIf { it.isNotBlank() })
+                put("arabic_text", row.required("arabicText"))
+                put("source_locator", row.required("sourceLocator"))
+                put("grading", row.optString("grading").takeIf { it.isNotBlank() })
+                put("review_status", VERIFIED)
+            })
+        }
+    }
+
+    private fun insertHadithTranslations(db: SQLiteDatabase, rows: JSONArray) {
+        for (i in 0 until rows.length()) {
+            val row = rows.getJSONObject(i)
+            db.insertOrThrow("hadith_translations", null, ContentValues().apply {
+                put("hadith_id", row.required("hadithId"))
+                put("edition_id", row.required("editionId"))
+                put("text", row.required("text"))
+            })
+        }
+    }
+
+    private fun JSONArray.countObjects(predicate: (JSONObject) -> Boolean): Int {
+        var count = 0
+        for (index in 0 until length()) if (predicate(getJSONObject(index))) count++
+        return count
+    }
+
+    private fun JSONObject.required(key: String): String =
+        optString(key).takeIf { it.isNotBlank() } ?: error("Required field '$key' is missing.")
+
+    private fun sha256(value: String): String =
+        MessageDigest.getInstance("SHA-256").digest(value.toByteArray()).joinToString("") { "%02x".format(it) }
+
+    private const val RELEASE_ASSET = "islamic-library/release.json"
+    private const val EXPECTED_AYAHS = 6236
+    private const val VERIFIED = "VERIFIED_FOR_RELEASE"
+    private val SUPPORTED_LANGUAGES = setOf("ar", "ur", "en", "hi")
+    private val CONTENT_TYPES = setOf("quran_text", "translation", "tafsir", "hadith_source", "hadith_translation")
+}
