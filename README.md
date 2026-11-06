@@ -9,7 +9,7 @@ An Android Islamic companion app built with Kotlin and Jetpack Compose.
 - Quran tafseer screen using the published editions returned by AlQuranCloud.
 - Qibla direction based on the device's location; the app does not silently substitute a fixed city when location is unavailable.
 - Prayer times from AlAdhan using the selected calculation method and Asr school, with a clearly labelled approximate offline fallback.
-- Optional prayer-time notifications and an optional daily 9:00 AM reminder. Android battery restrictions can delay notifications.
+- Optional prayer-time notifications and a configurable daily reminder (9:00 AM default). Android battery restrictions can delay notifications.
 - Theme selection, appearance modes, custom colors and eye-comfort tint.
 - Zakat calculation using gold and silver prices entered by the user for their local market.
 - Hijri date shown as an estimate, not as an official local moon-sighting result.
