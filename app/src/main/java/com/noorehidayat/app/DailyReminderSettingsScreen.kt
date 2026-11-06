@@ -23,6 +23,7 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import java.util.Locale
+import java.util.Locale
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -33,6 +34,9 @@ internal fun DailyReminderSettingsScreen(
     val context = LocalContext.current
     val prefs = remember { context.getSharedPreferences("noor_prefs", Context.MODE_PRIVATE) }
     var enabled by remember { mutableStateOf(prefs.getBoolean("daily_reminder_enabled", false)) }
+    var reminderHour by remember { mutableIntStateOf(prefs.getInt("daily_reminder_hour", 9)) }
+    var reminderMinute by remember { mutableIntStateOf(prefs.getInt("daily_reminder_minute", 0)) }
+    var showTimePicker by remember { mutableStateOf(false) }
     var reminderHour by remember { mutableIntStateOf(prefs.getInt("daily_reminder_hour", 9)) }
     var reminderMinute by remember { mutableIntStateOf(prefs.getInt("daily_reminder_minute", 0)) }
     var showTimePicker by remember { mutableStateOf(false) }
@@ -165,6 +169,22 @@ internal fun DailyReminderSettingsScreen(
                             )
                         }
                     }
+                    Spacer(Modifier.height(8.dp))
+                    Row(verticalAlignment = Alignment.CenterVertically) {
+                        Text(
+                            if (isUrdu) "یاد دہانی کا وقت" else "Reminder time",
+                            color = Muted,
+                            fontSize = 12.sp,
+                            modifier = Modifier.weight(1f)
+                        )
+                        TextButton(onClick = { showTimePicker = true }) {
+                            Text(
+                                if (isUrdu) "وقت تبدیل کریں" else "Change time",
+                                color = Gold,
+                                fontSize = 12.sp
+                            )
+                        }
+                    }
                 }
             }
 
@@ -187,6 +207,48 @@ internal fun DailyReminderSettingsScreen(
                 lineHeight = 17.sp
             )
         }
+    }
+
+    if (showTimePicker) {
+        val timeState = rememberTimePickerState(
+            initialHour = reminderHour,
+            initialMinute = reminderMinute,
+            is24Hour = false
+        )
+        AlertDialog(
+            onDismissRequest = { showTimePicker = false },
+            title = {
+                Text(
+                    if (isUrdu) "یاد دہانی کا وقت منتخب کریں" else "Choose reminder time",
+                    color = Cream
+                )
+            },
+            text = {
+                TimePicker(state = timeState)
+            },
+            confirmButton = {
+                TextButton(
+                    onClick = {
+                        reminderHour = timeState.hour
+                        reminderMinute = timeState.minute
+                        prefs.edit()
+                            .putInt("daily_reminder_hour", reminderHour)
+                            .putInt("daily_reminder_minute", reminderMinute)
+                            .apply()
+                        if (enabled) DailyReminderScheduler.schedule(context)
+                        showTimePicker = false
+                    }
+                ) {
+                    Text(if (isUrdu) "محفوظ کریں" else "Save", color = Gold)
+                }
+            },
+            dismissButton = {
+                TextButton(onClick = { showTimePicker = false }) {
+                    Text(if (isUrdu) "منسوخ" else "Cancel", color = Muted)
+                }
+            },
+            containerColor = Panel
+        )
     }
 
     if (showTimePicker) {
