@@ -11,6 +11,7 @@ import androidx.compose.material.icons.filled.ArrowDropDown
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
@@ -44,6 +45,7 @@ internal fun TafseerScreen(
     surah: Surah?,
     appLanguage: AppLanguage = AppLanguage.ENGLISH
 ) {
+    val context = LocalContext.current
     val isUrdu = appLanguage == AppLanguage.URDU
     val background = LocalAppTheme.current.background
     val surface = LocalAppTheme.current.surface
@@ -69,6 +71,22 @@ internal fun TafseerScreen(
         selectedEdition = null
         ayahs = emptyList()
         try {
+            val localEditions = withContext(Dispatchers.IO) {
+                IslamicContentDatabase.get(context).getTafsirEditions()
+            }
+            if (localEditions.isNotEmpty()) {
+                val localOptions = localEditions.map { local ->
+                    Edition(
+                        id = local.id,
+                        name = local.scholar + " · " + local.title,
+                        lang = local.language
+                    )
+                }
+                editions = localOptions
+                selectedEdition = localOptions.firstOrNull()
+                return@LaunchedEffect
+            }
+
             val response = tafsirRequest("edition/type/tafsir").getJSONArray("data")
             val available = buildList {
                 for (index in 0 until response.length()) {
@@ -111,6 +129,14 @@ internal fun TafseerScreen(
         error = ""
         ayahs = emptyList()
         try {
+            val localRows = withContext(Dispatchers.IO) {
+                IslamicContentDatabase.get(context).getTafsirForSurah(currentSurah.number, edition.id)
+            }
+            if (localRows.isNotEmpty()) {
+                ayahs = localRows.map { row -> TafsirAyah(row.ayahNumber, row.text) }
+                return@LaunchedEffect
+            }
+
             val response = tafsirRequest("surah/${currentSurah.number}/${edition.id}")
                 .getJSONObject("data")
                 .getJSONArray("ayahs")
