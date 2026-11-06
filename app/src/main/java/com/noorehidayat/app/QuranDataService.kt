@@ -141,6 +141,30 @@ object QuranDataService {
         114 to "Revealed for seeking refuge from the whisperings of Satan and evil instigators among mankind and jinn."
     )
 
+    /** Number of Surahs whose complete Arabic text and Urdu/English translations are cached. */
+    fun cachedSurahCount(context: Context): Int {
+        val prefs = context.getSharedPreferences("noor_quran_cache", Context.MODE_PRIVATE)
+        return allSurahs.count { surah ->
+            val raw = prefs.getString("noor_ayahs_v3_${surah.number}", null) ?: return@count false
+            try {
+                parseBatchResponse(raw, surah.number).size == surah.ayahs
+            } catch (_: Exception) {
+                false
+            }
+        }
+    }
+
+    /** Download/cache all 114 complete Surahs. Progress is reported after each verified Surah. */
+    suspend fun downloadAllSurahs(context: Context, onProgress: (Int) -> Unit): Int {
+        var completed = 0
+        for (surah in allSurahs) {
+            getSurahBatch(context, surah.number)
+            completed++
+            onProgress(completed)
+        }
+        return completed
+    }
+
     suspend fun getSurahBatch(context: Context, surahNumber: Int): List<Ayah> = withContext(Dispatchers.IO) {
         val expectedAyahCount = allSurahs.firstOrNull { it.number == surahNumber }?.ayahs
             ?: throw IllegalArgumentException("Unknown Surah number: $surahNumber")
@@ -211,11 +235,20 @@ object QuranDataService {
             }
         }
 
-        val expectedAyahCount = allSurahs.firstOrNull { it.number == surahNumber }?.ayahCount
+        val expectedAyahCount = allSurahs.firstOrNull { it.number == surahNumber }?.ayahs
             ?: throw IllegalArgumentException("Unknown Surah number: $surahNumber")
         val count = uthmaniAyahs.size
-        if (count != expectedAyahCount || uthmaniAyahs.any { it.isBlank() }) {
-            throw IOException("Incomplete Quran response for Surah $surahNumber: expected $expectedAyahCount ayahs, received $count.")
+        if (
+            count != expectedAyahCount ||
+            uthmaniAyahs.any { it.isBlank() } ||
+            englishAyahs.size != expectedAyahCount ||
+            urduAyahs.size != expectedAyahCount ||
+            englishAyahs.any { it.isBlank() } ||
+            urduAyahs.any { it.isBlank() }
+        ) {
+            throw IOException(
+                "Incomplete Quran response for Surah $surahNumber: expected $expectedAyahCount Arabic, English and Urdu ayahs; received Arabic=$count, English=${englishAyahs.size}, Urdu=${urduAyahs.size}."
+            )
         }
         val result = mutableListOf<Ayah>()
         val contextNote = shanENuzulMap[surahNumber] ?: ""
