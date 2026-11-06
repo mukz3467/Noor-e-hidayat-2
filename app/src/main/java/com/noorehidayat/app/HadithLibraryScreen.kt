@@ -132,7 +132,7 @@ internal fun HadithLibraryScreen(
         )
     }
 
-    var hadiths by remember { mutableStateOf(sampleHadiths) }
+    var hadiths by remember { mutableStateOf(sampleHadiths.filterNot { it.book == "Sahih Muslim" }) }
 
     LaunchedEffect(appLanguage) {
         val localRecords = withContext(Dispatchers.IO) {
