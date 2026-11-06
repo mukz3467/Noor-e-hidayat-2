@@ -7,6 +7,8 @@ import android.app.PendingIntent
 import android.content.BroadcastReceiver
 import android.content.Context
 import android.content.Intent
+import android.media.AudioAttributes
+import android.net.Uri
 import android.os.Build
 import androidx.core.app.NotificationCompat
 import androidx.core.app.NotificationManagerCompat
@@ -104,8 +106,17 @@ internal object PrayerReminderScheduler {
     fun createChannel(context: Context) {
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
             val manager = context.getSystemService(NotificationManager::class.java)
-            manager.createNotificationChannel(NotificationChannel(CHANNEL_ID, "Prayer reminders", NotificationManager.IMPORTANCE_DEFAULT).apply {
+            val adhanFile = MediaAssetManager.adhanFile(context)
+            val activeChannelId = if (adhanFile != null) "noor_prayer_reminders_adhan" else CHANNEL_ID
+            manager.createNotificationChannel(NotificationChannel(activeChannelId, "Prayer reminders", NotificationManager.IMPORTANCE_DEFAULT).apply {
                 description = "Notifications at the daily prayer times you enable"
+                if (adhanFile != null) {
+                    val audioAttributes = AudioAttributes.Builder()
+                        .setUsage(AudioAttributes.USAGE_NOTIFICATION)
+                        .setContentType(AudioAttributes.CONTENT_TYPE_SONIFICATION)
+                        .build()
+                    setSound(Uri.fromFile(adhanFile), audioAttributes)
+                }
             })
         }
     }
@@ -138,7 +149,8 @@ internal object PrayerReminderScheduler {
             "hi" -> "नमाज़ अदा करने का समय हो गया है।"
             else -> "It is time for $name. Take a moment for prayer."
         }
-        val notification = NotificationCompat.Builder(context, CHANNEL_ID)
+        val activeChannelId = if (MediaAssetManager.adhanFile(context) != null) "noor_prayer_reminders_adhan" else CHANNEL_ID
+        val notification = NotificationCompat.Builder(context, activeChannelId)
             .setSmallIcon(android.R.drawable.ic_lock_idle_alarm)
             .setContentTitle(notificationTitle)
             .setContentText(notificationText)
