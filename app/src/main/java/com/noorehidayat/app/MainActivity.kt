@@ -422,6 +422,7 @@ private fun NoorApp() {
                     selectedLecture = selectedLecture ?: IslamicContentData.curatedLectures.first(),
                     onSelectLecture = { selectedLecture = it }
                 )
+                "Learning" -> QuranLearningScreen(appLanguage = appLanguage)
                 "Duas" -> DailyDuasScreen(appLanguage = appLanguage)
                 "Quiz" -> IslamicQuizScreen(appLanguage = appLanguage)
                 "Tasbeeh" -> TasbeehScreen(appLanguage = appLanguage)
@@ -654,6 +655,16 @@ private fun HomeScreen(
                     onClick = { onNavigate("Tasbeeh") }
                 )
             }
+        }
+
+        item {
+            HomeFeatureTile(
+                title = I18n.t("learning", appLanguage),
+                sub = if (appLanguage == AppLanguage.URDU) "حروف سے تجوید اور حفظ تک" else "Letters, Tajweed & Hifz course",
+                icon = "🎓",
+                modifier = Modifier.fillMaxWidth(),
+                onClick = { onNavigate("Learning") }
+            )
         }
 
         item {
@@ -1945,6 +1956,7 @@ private fun MoreHubScreen(
             Triple(I18n.t("tasbeeh", appLanguage), "3D Rotating Beads, Haptics & Masnoon Azkar", "Tasbeeh"),
             Triple(I18n.t("hisn_al_muslim", appLanguage), "Supplications with displayed source references", "Hisn al-Muslim"),
             Triple(I18n.t("hadith_library", appLanguage), "Selected narrations with book and hadith references", "Hadith"),
+            Triple(I18n.t("learning", appLanguage), "Structured 4-language Quran reading, Tajweed and Hifz course", "Learning"),
             Triple(if (appLanguage == AppLanguage.URDU) "تفسیر القرآن" else "Quran Tafseer", "Load a published tafseer edition by Surah", "Tafseer"),
             Triple(if (appLanguage == AppLanguage.URDU) "قرآن آف لائن ڈاؤن لوڈ کریں" else "Download Quran for offline reading", "Save all 114 Surahs and Urdu/English translations on this device", "Offline Quran"),
             Triple(if (appLanguage == AppLanguage.URDU) "روزانہ یاد دہانی" else "Daily Reminder", "Optional daily reminder at 9:00 AM local time", "Daily Reminder"),
