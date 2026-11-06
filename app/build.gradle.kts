@@ -164,7 +164,7 @@ val downloadAmiriQuranFont by tasks.registering {
 
   doLast {
     fun download(url: String, destination: java.io.File) {
-      if (destination.exists() && destination.length() > 0L) return
+      if (destination.exists() && destination.length() > 1024L) return
       destination.parentFile.mkdirs()
       val connection = java.net.URL(url).openConnection().apply {
         connectTimeout = 20000
