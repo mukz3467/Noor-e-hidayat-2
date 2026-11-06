@@ -1142,6 +1142,7 @@ private fun QuranReaderScreen(
                             lineHeight = (arabicFontSize * 1.8f).sp,
                             textAlign = TextAlign.End,
                             fontFamily = FontFamily.Serif,
+                            fontWeight = FontWeight.Bold,
                             modifier = Modifier
                                 .fillMaxWidth()
                                 .padding(vertical = 10.dp)
