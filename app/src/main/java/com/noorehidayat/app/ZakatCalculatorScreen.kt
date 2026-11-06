@@ -36,7 +36,7 @@ internal fun ZakatCalculatorScreen(appLanguage: AppLanguage = AppLanguage.ENGLIS
     val currencies = listOf("PKR (Rs)" to "Rs", "USD ($)" to "$", "SAR" to "SAR", "AED" to "AED", "GBP (£)" to "£", "EUR (€)" to "€", "INR (₹)" to "₹")
     var currencyIndex by remember { mutableIntStateOf(0) }
     var currencyExpanded by remember { mutableStateOf(false) }
-    var assets by remember { mutableStateOf(listOf(ZakatAsset(1, kinds[0].first))) }
+    var assets by remember { mutableStateOf(emptyList<ZakatAsset>()) }
     var nextId by remember { mutableIntStateOf(2) }
     var addExpanded by remember { mutableStateOf(false) }
     val deductionKinds = listOf("Short-term debts due" to "قریب الادا قرض", "Overdue bills / essential dues" to "واجب الادا بل اور ضروری واجبات", "Other eligible liabilities" to "دیگر قابلِ کٹوتی واجبات")
