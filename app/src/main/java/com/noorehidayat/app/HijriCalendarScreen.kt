@@ -32,14 +32,24 @@ internal fun HijriCalendarScreen(appLanguage: AppLanguage = AppLanguage.ENGLISH)
     val prefs = remember { ctx.getSharedPreferences("noor_hijri_prefs", Context.MODE_PRIVATE) }
     var moonAdjustment by remember { mutableIntStateOf(prefs.getInt("moon_adj", 0)) }
 
-    // Astronomical Hijri calculation approximation from Gregorian date
+    // Tabular Islamic civil-calendar estimate. This is not a local moon-sighting result.
     val cal = Calendar.getInstance()
-    val dayOfYear = cal.get(Calendar.DAY_OF_YEAR)
-    val year = cal.get(Calendar.YEAR)
-    val dayOfWeek = cal.get(Calendar.DAY_OF_WEEK) // 2=Mon, 5=Thu
+    val gregorianYear = cal.get(Calendar.YEAR)
+    val gregorianMonth = cal.get(Calendar.MONTH) + 1
+    val gregorianDay = cal.get(Calendar.DAY_OF_MONTH)
+    val todayJulianDay = gregorianToJulianDay(gregorianYear, gregorianMonth, gregorianDay) + moonAdjustment
+    val dayOfWeek = cal.get(Calendar.DAY_OF_WEEK)
 
     val isMonday = dayOfWeek == Calendar.MONDAY
     val isThursday = dayOfWeek == Calendar.THURSDAY
+
+    val hijriYear = islamicYearFromJulianDay(todayJulianDay)
+    var hijriMonth = 1
+    while (hijriMonth < 12 && islamicMonthStart(hijriYear, hijriMonth + 1) <= todayJulianDay) {
+        hijriMonth++
+    }
+    val hijriMonthIdx = hijriMonth - 1
+    val hijriDay = (todayJulianDay - islamicMonthStart(hijriYear, hijriMonth) + 1).coerceIn(1, 30)
 
     val hijriMonthsEn = listOf(
         "Muharram", "Safar", "Rabi' al-Awwal", "Rabi' al-Thani",
@@ -53,17 +63,11 @@ internal fun HijriCalendarScreen(appLanguage: AppLanguage = AppLanguage.ENGLISH)
         "رمضان المبارک", "شوال المکرم", "ذی القعدہ", "ذی الحجہ"
     )
 
-    // Accurate calculation based on 354.36 days per lunar year
-    val epochDiffDays = (year - 622) * 365.25 + dayOfYear - 227 + moonAdjustment
-    val hijriYear = (epochDiffDays / 354.367).toInt() + 1
-    val dayInHijriYear = (epochDiffDays % 354.367).toInt().coerceAtLeast(0)
-    val hijriMonthIdx = (dayInHijriYear / 29.53).toInt().coerceIn(0, 11)
-    val hijriDay = ((dayInHijriYear % 29.53).toInt() + 1).coerceIn(1, 30)
 
     val isWhiteDay = hijriDay in 13..15
 
     // Moon phase estimate
-    val moonAgeDays = (dayInHijriYear % 29.53).toFloat()
+    val moonAgeDays = (hijriDay - 1).toFloat()
     val moonPhaseName = when {
         moonAgeDays < 1.5f -> "New Moon (محاق)"
         moonAgeDays < 7.0f -> "Waxing Crescent (ہلال)"
@@ -77,13 +81,13 @@ internal fun HijriCalendarScreen(appLanguage: AppLanguage = AppLanguage.ENGLISH)
 
     val sacredCountdowns = remember(hijriDay, hijriMonthIdx) {
         listOf(
-            SacredSeasonCountdown("Ramadan Mubarak", "رمضان المبارک", "1 Ramadan", calculateDaysUntil(hijriMonthIdx, hijriDay, 8, 1), "🌙"),
-            SacredSeasonCountdown("Laylat al-Qadr", "شبِ قدر", "27 Ramadan", calculateDaysUntil(hijriMonthIdx, hijriDay, 8, 27), "✨"),
-            SacredSeasonCountdown("Eid al-Fitr", "عید الفطر", "1 Shawwal", calculateDaysUntil(hijriMonthIdx, hijriDay, 9, 1), "🕌"),
-            SacredSeasonCountdown("Day of Arafah", "یومِ عرفہ", "9 Dhu al-Hijjah", calculateDaysUntil(hijriMonthIdx, hijriDay, 11, 9), "🕋"),
-            SacredSeasonCountdown("Eid al-Adha", "عید الاضحیٰ", "10 Dhu al-Hijjah", calculateDaysUntil(hijriMonthIdx, hijriDay, 11, 10), "🐑"),
-            SacredSeasonCountdown("Ashura (10th Muharram)", "یومِ عاشوراء", "10 Muharram", calculateDaysUntil(hijriMonthIdx, hijriDay, 0, 10), "📜"),
-            SacredSeasonCountdown("Rabi' al-Awwal (Mawlid)", "ربیع الاول شریف", "12 Rabi' al-Awwal", calculateDaysUntil(hijriMonthIdx, hijriDay, 2, 12), "🌹")
+            SacredSeasonCountdown("Ramadan Mubarak", "رمضان المبارک", "1 Ramadan", calculateDaysUntil(todayJulianDay, hijriYear, 8, 1), "🌙"),
+            SacredSeasonCountdown("Laylat al-Qadr", "شبِ قدر", "27 Ramadan", calculateDaysUntil(todayJulianDay, hijriYear, 8, 27), "✨"),
+            SacredSeasonCountdown("Eid al-Fitr", "عید الفطر", "1 Shawwal", calculateDaysUntil(todayJulianDay, hijriYear, 9, 1), "🕌"),
+            SacredSeasonCountdown("Day of Arafah", "یومِ عرفہ", "9 Dhu al-Hijjah", calculateDaysUntil(todayJulianDay, hijriYear, 11, 9), "🕋"),
+            SacredSeasonCountdown("Eid al-Adha", "عید الاضحیٰ", "10 Dhu al-Hijjah", calculateDaysUntil(todayJulianDay, hijriYear, 11, 10), "🐑"),
+            SacredSeasonCountdown("Ashura (10th Muharram)", "یومِ عاشوراء", "10 Muharram", calculateDaysUntil(todayJulianDay, hijriYear, 0, 10), "📜"),
+            SacredSeasonCountdown("Rabi' al-Awwal (Mawlid)", "ربیع الاول شریف", "12 Rabi' al-Awwal", calculateDaysUntil(todayJulianDay, hijriYear, 2, 12), "🌹")
         )
     }
 
@@ -304,9 +308,28 @@ internal fun HijriCalendarScreen(appLanguage: AppLanguage = AppLanguage.ENGLISH)
     }
 }
 
-private fun calculateDaysUntil(currMonth: Int, currDay: Int, targetMonth: Int, targetDay: Int): Int {
-    val currTotalDays = currMonth * 30 + currDay
-    val targetTotalDays = targetMonth * 30 + targetDay
-    val diff = targetTotalDays - currTotalDays
-    return if (diff >= 0) diff else diff + 354
+private const val ISLAMIC_EPOCH_JULIAN_DAY = 1_948_440
+
+private fun gregorianToJulianDay(year: Int, month: Int, day: Int): Int {
+    val a = (14 - month) / 12
+    val y = year + 4800 - a
+    val m = month + 12 * a - 3
+    return day + (153 * m + 2) / 5 + 365 * y + y / 4 - y / 100 + y / 400 - 32045
+}
+
+private fun islamicYearStart(year: Int): Int =
+    ISLAMIC_EPOCH_JULIAN_DAY + 354 * (year - 1) + (3 + 11 * year) / 30
+
+private fun islamicMonthStart(year: Int, month: Int): Int =
+    islamicYearStart(year) + (59 * (month - 1) + 1) / 2
+
+private fun islamicYearFromJulianDay(julianDay: Int): Int =
+    (30 * (julianDay - ISLAMIC_EPOCH_JULIAN_DAY) + 10646) / 10631
+
+private fun calculateDaysUntil(todayJulianDay: Int, currentHijriYear: Int, targetMonthIndex: Int, targetDay: Int): Int {
+    var targetJulianDay = islamicMonthStart(currentHijriYear, targetMonthIndex + 1) + targetDay - 1
+    if (targetJulianDay < todayJulianDay) {
+        targetJulianDay = islamicMonthStart(currentHijriYear + 1, targetMonthIndex + 1) + targetDay - 1
+    }
+    return (targetJulianDay - todayJulianDay).coerceAtLeast(0)
 }
