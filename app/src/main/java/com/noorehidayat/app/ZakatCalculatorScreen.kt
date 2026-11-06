@@ -196,6 +196,32 @@ internal fun ZakatCalculatorScreen(appLanguage: AppLanguage = AppLanguage.ENGLIS
             contentPadding = PaddingValues(bottom = 24.dp)
         ) {
             item {
+                Text(
+                    if (appLanguage == AppLanguage.URDU) "حساب سے پہلے آج کے مقامی مارکیٹ ریٹس درج کریں"
+                    else "Enter current local market prices per gram. Rates are not fetched live.",
+                    color = Gold,
+                    fontSize = 12.sp
+                )
+            }
+            item {
+                ZakatInputField(
+                    label = "Current gold price per gram (${selectedCurrency.code})",
+                    urduLabel = "فی گرام سونے کی موجودہ قیمت",
+                    value = goldRateInput,
+                    onValueChange = { goldRateInput = it },
+                    prefix = selectedCurrency.symbol
+                )
+            }
+            item {
+                ZakatInputField(
+                    label = "Current silver price per gram (${selectedCurrency.code})",
+                    urduLabel = "فی گرام چاندی کی موجودہ قیمت",
+                    value = silverRateInput,
+                    onValueChange = { silverRateInput = it },
+                    prefix = selectedCurrency.symbol
+                )
+            }
+            item {
                 Text("ZAKATABLE ASSETS (اثاثہ جات)", color = Gold, fontSize = 11.sp, fontWeight = FontWeight.Bold)
             }
 
