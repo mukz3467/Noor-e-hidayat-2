@@ -69,7 +69,9 @@ internal class IslamicContentDatabase private constructor(context: Context) :
                 ayah_number INTEGER NOT NULL,
                 verse_key TEXT NOT NULL UNIQUE,
                 arabic_text TEXT NOT NULL,
-                PRIMARY KEY(surah_number, ayah_number)
+                edition_id TEXT NOT NULL,
+                PRIMARY KEY(surah_number, ayah_number),
+                FOREIGN KEY(edition_id) REFERENCES content_editions(edition_id)
             )""".trimIndent()
         )
         db.execSQL(
@@ -170,7 +172,12 @@ internal class IslamicContentDatabase private constructor(context: Context) :
     fun getQuranAyahs(surahNumber: Int): List<Ayah> {
         val ayahs = linkedMapOf<Int, Ayah>()
         readableDatabase.rawQuery(
-            "SELECT ayah_number, arabic_text FROM quran_ayahs WHERE surah_number = ? ORDER BY ayah_number",
+            """SELECT q.ayah_number, q.arabic_text
+               FROM quran_ayahs q
+               JOIN content_editions e ON e.edition_id = q.edition_id
+               WHERE q.surah_number = ? AND e.content_type = 'quran_text'
+                 AND e.review_status = 'VERIFIED_FOR_RELEASE'
+               ORDER BY q.ayah_number""",
             arrayOf(surahNumber.toString())
         ).use { cursor ->
             while (cursor.moveToNext()) {
@@ -330,7 +337,7 @@ internal class IslamicContentDatabase private constructor(context: Context) :
 
     fun getCoverage(): Coverage {
         val db = readableDatabase
-        val arabicCount = scalarCount(db, "SELECT COUNT(*) FROM quran_ayahs")
+        val arabicCount = scalarCount(db, """SELECT COUNT(*) FROM quran_ayahs q JOIN content_editions e ON e.edition_id = q.edition_id WHERE e.content_type = 'quran_text' AND e.review_status = 'VERIFIED_FOR_RELEASE'""")
         val translations = mutableMapOf<String, Int>()
         db.rawQuery(
             """SELECT e.language_code, COUNT(DISTINCT t.surah_number || ':' || t.ayah_number)
