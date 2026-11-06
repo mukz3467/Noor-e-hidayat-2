@@ -13,7 +13,7 @@ An Android Islamic companion app built with Kotlin and Jetpack Compose.
 - Theme selection, appearance modes, custom colors and eye-comfort tint.
 - Zakat calculation using gold and silver prices entered by the user for their local market.
 - Hijri date shown as an estimate, not as an official local moon-sighting result.
-- Haramain live channel embeds for the Saudi Quran TV and Saudi Sunnah TV YouTube channels, with an external YouTube fallback.
+- Haramain live channel embeds for the Saudi Quran TV and Saudi Sunnah TV YouTube channels.
 - Selected hadith and supplication records with direct links to their cited source pages.
 
 ## Data sources and accuracy notes
@@ -27,9 +27,11 @@ The hadith and dua sections are selected references, not a complete hadith or su
 
 Prayer-time fallback calculations are approximate and should be checked against a trusted local mosque when the online calculation service is unavailable. Zakat metal prices are user-entered and are not live market quotes. The Hijri date can differ from local moon-sighting announcements.
 
-## Artwork licensing
+## Arabic Quran typography
 
-No calligraphy artwork from FreeIslamicCalligraphy.com is bundled in this app. Obtain written permission or use an individually verified asset with a compatible license before reproducing any artwork.
+- Quranic Arabic, Surah names, and Arabic word-by-word labels use the Amiri Naskh typeface, bundled into the APK for offline rendering.
+- Amiri is distributed under the SIL Open Font License (OFL). The build downloads the font and its license from the Google Fonts repository; no external font website is opened inside the app.
+- Quran verse text itself is not rewritten or replaced by artwork. Only its typeface and presentation are changed.
 
 ## Build and test
 
