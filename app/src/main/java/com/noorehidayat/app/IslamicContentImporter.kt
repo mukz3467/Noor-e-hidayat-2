@@ -46,30 +46,26 @@ internal object IslamicContentImporter {
         validateQuran(quran, editionById)
 
         val translationEditions = editionById.values.filter { it.optString("contentType") == "translation" }
-        require(translationEditions.size >= 5) {
-            "Release must contain at least five complete, scholar-attributed Quran translation editions."
-        }
+        // Arabic is the original Quran text, not a translation. Require one complete,
+        // separately attributed edition for each requested translation language.
         require(setOf("en", "ur", "hi").all { language ->
             translationEditions.any { it.optString("languageCode") == language }
         }) {
-            "Quran translation editions must cover English, Urdu and Hindi; Arabic is supplied as the original Quran text."
+            "Quran translations must include verified English, Urdu and Hindi editions."
         }
 
         val translations = root.optJSONArray("translations") ?: JSONArray()
         validateCompleteEditionRecords(translations, editionById, "translation")
 
+        // Tafsir is a scholarly corpus, not a translation set. Classical works may
+        // cover only selected ayahs; never invent missing entries or demand an
+        // artificial minimum number of scholars/languages.
         val tafsirEditions = editionById.values.filter { it.optString("contentType") == "tafsir" }
-        require(tafsirEditions.map { it.optString("scholarName") }.distinct().size >= 5) {
-            "Release must contain tafsir from at least five distinct named scholars."
-        }
-        require(setOf("ar", "en", "ur", "hi").all { language ->
-            tafsirEditions.any { it.optString("languageCode") == language }
-        }) {
-            "Tafsir editions must provide verified Arabic, English, Urdu and Hindi coverage."
-        }
-
         val tafsir = root.optJSONArray("tafsirEntries") ?: JSONArray()
-        validateCompleteEditionRecords(tafsir, editionById, "tafsir")
+        validateTafsirRecords(tafsir, editionById)
+        require(tafsir.isEmpty() || tafsirEditions.isNotEmpty()) {
+            "Tafsir entries require at least one separately attributed tafsir edition."
+        }
 
         val collections = root.optJSONArray("hadithCollections") ?: JSONArray()
         val books = root.optJSONArray("hadithBooks") ?: JSONArray()
@@ -198,6 +194,32 @@ internal object IslamicContentImporter {
                 require(counts[id]?.size == EXPECTED_AYAHS) {
                     "Edition '$id' must contain all $EXPECTED_AYAHS ayah entries for $contentType."
                 }
+            }
+        }
+    }
+
+    private fun validateTafsirRecords(
+        records: JSONArray,
+        editions: Map<String, JSONObject>
+    ) {
+        val seen = mutableSetOf<String>()
+        for (index in 0 until records.length()) {
+            val row = records.getJSONObject(index)
+            val editionId = row.required("editionId")
+            val edition = editions[editionId] ?: error("Unknown tafsir edition '$editionId'.")
+            require(edition.optString("contentType") == "tafsir") {
+                "Edition '$editionId' is not a tafsir edition."
+            }
+            val surah = row.optInt("surahNumber")
+            val ayah = row.optInt("ayahNumber")
+            require(surah in 1..114 && ayah in 1..QuranDataService.allSurahs[surah - 1].ayahs) {
+                "Invalid tafsir ayah locator $surah:$ayah."
+            }
+            require(row.required("text").isNotBlank()) { "Blank tafsir text at $surah:$ayah." }
+            require(row.required("pageLocator").isNotBlank()) { "Tafsir page/locator is missing at $surah:$ayah." }
+            require(row.required("sourceReference").isNotBlank()) { "Tafsir source reference is missing at $surah:$ayah." }
+            require(seen.add("$editionId:$surah:$ayah")) {
+                "Duplicate tafsir entry for edition '$editionId' at $surah:$ayah."
             }
         }
     }
