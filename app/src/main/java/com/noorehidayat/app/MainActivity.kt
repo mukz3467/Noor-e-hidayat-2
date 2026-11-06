@@ -174,6 +174,10 @@ private fun NoorApp() {
         }
     }
 
+    CompositionLocalProvider(
+        LocalAppTheme provides activeColors,
+        LocalThemeManager provides themeManager
+    ) {
     Scaffold(
         topBar = {
             if (!isTheaterMode) {
@@ -370,6 +374,19 @@ private fun NoorApp() {
                 )
                 "Prayer Times" -> PrayerTimesScreen(appLanguage = appLanguage)
                 "Qibla" -> QiblaScreen(appLanguage = appLanguage)
+                "Tafseer" -> TafseerScreen(surah = selectedSurah ?: QuranDataService.allSurahs.first())
+                "Offline Quran" -> OfflineQuranDownloadScreen(
+                    appLanguage = appLanguage,
+                    onNavigateBack = { currentPage = "More" }
+                )
+                "Daily Reminder" -> DailyReminderSettingsScreen(
+                    appLanguage = appLanguage,
+                    onNavigateBack = { currentPage = "More" }
+                )
+                "Theme Settings" -> ThemeSettingsScreen(
+                    currentLanguage = appLanguage,
+                    onNavigateBack = { currentPage = "More" }
+                )
                 "Live" -> LiveHarameynScreen(
                     appLanguage = appLanguage,
                     isTheaterMode = isTheaterMode,
@@ -400,6 +417,7 @@ private fun NoorApp() {
                 )
             }
         }
+    }
     }
 }
 
@@ -1245,6 +1263,11 @@ private fun QuranReaderScreen(
 }
 
 private fun buildEmbeddedVideoHtml(videoId: String): String {
+    val embedPath = if (videoId.startsWith("channel:")) {
+        "live_stream?channel=${videoId.removePrefix("channel:")}"
+    } else {
+        videoId
+    }
     return """
     <!DOCTYPE html>
     <html lang="en">
@@ -1263,7 +1286,7 @@ private fun buildEmbeddedVideoHtml(videoId: String): String {
         <div class="player-wrap">
             <iframe 
                 id="ytplayer"
-                src="https://www.youtube-nocookie.com/embed/$videoId?autoplay=1&playsinline=1&controls=1&modestbranding=1&rel=0&iv_load_policy=3&fs=0&enablejsapi=1&origin=https://noorehidayat.app"
+                src="https://www.youtube-nocookie.com/embed/$embedPath?autoplay=1&playsinline=1&controls=1&modestbranding=1&rel=0&iv_load_policy=3&fs=0&enablejsapi=1&origin=https://noorehidayat.app"
                 referrerpolicy="strict-origin-when-cross-origin"
                 allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
                 allowfullscreen>
@@ -1388,7 +1411,7 @@ private fun LiveHarameynScreen(
                 )
 
                 Text(
-                    "ALL 24/7 LIVE STREAMS",
+                    "OFFICIAL SAUDI BROADCAST CHANNELS",
                     color = Gold,
                     fontSize = 11.sp,
                     fontWeight = FontWeight.Bold,
@@ -1772,8 +1795,12 @@ private fun MoreHubScreen(
 
         val items = listOf(
             Triple(I18n.t("tasbeeh", appLanguage), "3D Rotating Beads, Haptics & Masnoon Azkar", "Tasbeeh"),
-            Triple(I18n.t("hisn_al_muslim", appLanguage), "150+ Authentic Supplications & Virtues", "Hisn al-Muslim"),
-            Triple(I18n.t("hadith_library", appLanguage), "Bukhari, Muslim, 40 Hadith & Riyad as-Salihin", "Hadith"),
+            Triple(I18n.t("hisn_al_muslim", appLanguage), "Supplications with displayed source references", "Hisn al-Muslim"),
+            Triple(I18n.t("hadith_library", appLanguage), "Selected narrations with book and hadith references", "Hadith"),
+            Triple(if (appLanguage == AppLanguage.URDU) "تفسیر القرآن" else "Quran Tafseer", "Load a published tafseer edition by Surah", "Tafseer"),
+            Triple(if (appLanguage == AppLanguage.URDU) "قرآن آف لائن ڈاؤن لوڈ کریں" else "Download Quran for offline reading", "Save all 114 Surahs and Urdu/English translations on this device", "Offline Quran"),
+            Triple(if (appLanguage == AppLanguage.URDU) "روزانہ یاد دہانی" else "Daily Reminder", "Optional daily reminder at 9:00 AM local time", "Daily Reminder"),
+            Triple(I18n.t("theme_settings", appLanguage), "12 themes, eye-comfort mode and custom colors", "Theme Settings"),
             Triple(I18n.t("khatam_planner", appLanguage), "30-Day Goal, Prayer Targets & 30 Juz Tracker", "Khatam Planner"),
             Triple(I18n.t("ramadan_mode", appLanguage), "Sehar/Iftar Countdown, Daily Duas & Tarawih", "Ramadan Companion"),
             Triple(I18n.t("card_generator", appLanguage), "1-Click Luxury Ayah & Hadith Social Cards", "Social Card"),
