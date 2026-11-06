@@ -66,3 +66,42 @@ All records should be searchable offline. Database import must validate expected
 ## Current status
 
 This file is an implementation and verification contract, not evidence that the datasets have already been bundled. The content corpus remains incomplete until the delivery gates above pass.
+
+## Source review update (2026-11-06)
+
+This update records what the published source documentation actually establishes. It is not a scholarly approval of any imported text.
+
+### Quran Arabic
+
+- Tanzil publishes its Uthmani Quran text as CC BY 3.0 and permits verbatim redistribution in apps when the source is credited, a link to Tanzil is provided, and its copyright notice is retained.
+- Tanzil's terms explicitly prohibit changing the text. Any import must therefore preserve the source text exactly; normalization, diacritic removal, Basmala rewriting, or other textual transformations must not be applied to the distributed text.
+- Candidate: Tanzil Uthmani v1.1. Before release, pin the original downloaded file, compute its SHA-256, independently validate all 114 surahs / 6,236 ayahs and preserve the required notice.
+
+Primary terms: https://tanzil.net/docs/Text_License
+Official download page: https://tanzil.net/download/
+
+### Quran translations and Tafsir
+
+- UmmahLibrary's published per-dataset attribution identifies several translation sources, but explicitly warns that copyright varies by translation and that each upstream license must be confirmed before redistribution. It also says Saheeh International was excluded because its license does not permit free redistribution under that project's policy.
+- The same attribution lists Tafsir al-Muyassar, al-Tabari, Ibn Kathir and Ma'arif-ul-Qur'an as content plugins while stating that the works remain copyright of their authors/publishers. The existence of a plugin or downloadable/API text is not proof that an offline copy may be redistributed.
+- No five-edition, four-language Tafsir corpus is approved for bundling by this review. No five-edition translation bundle is approved either. Urdu/Hindi availability must not be inferred from a catalogue listing.
+- QUL resource licensing varies by resource. Every selected resource needs its own license evidence and redistribution permission before inclusion.
+
+Reference attribution register: https://github.com/UmmahLibrary/ummah-library/blob/main/packages/data/ATTRIBUTION.md
+QUL documentation: https://qul.tarteel.ai/
+
+### Sahih al-Bukhari and Sahih Muslim
+
+- i-muslim's public download documentation states that its Arabic classical Hadith texts are public-domain text and lists 7,580 Bukhari Arabic entries and 7,360 Muslim Arabic entries. It distinguishes these from third-party non-Arabic translations: most mirrored translations are metadata-only because redistribution permission is unclear; only the rows authored by i-muslim are CC0.
+- Those published counts are source-reported counts, not proof that the export covers every book/chapter/narration in a specific printed edition. In particular, the Muslim count must be reconciled with the chosen edition's numbering and repeated/sub-numbered reports before it can be described as complete.
+- The Hadith Project reports 7,580 Bukhari narrations in 97 books using Muhammad Fu'ad Abd al-Baqi numbering. Its page documents multiple upstream sources and explains that 187 Bukhari rows were unmatched in one alignment process. This is useful provenance work, but its stated data sources include ODbL 1.0 / DbCL 1.0 material; the exact database/content terms and attribution must be carried through before reuse. Its public documentation does not establish a complete Muslim corpus in the same release.
+- Therefore neither a complete Bukhari+Muslim offline release nor four-language Hadith translations are approved yet. Do not copy English text from Sunnah.com mirrors: i-muslim identifies those mirrored translations as proprietary and serves them as metadata only when no open license grant is on file.
+
+References:
+- i-muslim source and license model: https://i-muslim.com/id/downloads
+- The Hadith Project Bukhari provenance and numbering: https://www.thehadithproject.com/collection/bukhari/
+- The Hadith Project data blueprint and licensing: https://www.thehadithproject.com/blueprint/
+
+### Release decision
+
+The current importer/database/UI work remains infrastructure only. No placeholder corpus, machine-translated religious text, scraped third-party translation, or guessed attribution may be used to satisfy a count requirement. The next data import may proceed only for an individually approved, version-pinned source whose exact text, coverage, numbering, license and required attribution have been checked. Where no verified text exists in a language, the app must show that language as unavailable rather than substitute English, Urdu, Hindi or Arabic silently.
