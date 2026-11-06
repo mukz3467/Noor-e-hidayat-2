@@ -1,4 +1,6 @@
 import com.google.gms.googleservices.GoogleServicesPlugin.MissingGoogleServicesStrategy
+import java.net.HttpURLConnection
+import java.net.URL
 
 plugins {
   alias(libs.plugins.android.application)
@@ -8,7 +10,11 @@ plugins {
   alias(libs.plugins.google.services)
 }
 
+val generatedAmiriResources = layout.buildDirectory.dir("generated/amiriResources")
+
 android {
+  sourceSets.getByName("main").res.srcDir(generatedAmiriResources.get().dir("res"))
+  sourceSets.getByName("main").assets.srcDir(generatedAmiriResources.get().dir("assets"))
   namespace = "com.noorehidayat.app"
   compileSdk { version = release(36) { minorApiLevel = 1 } }
 
@@ -146,4 +152,46 @@ dependencies {
   debugImplementation(libs.androidx.compose.ui.tooling)
   "ksp"(libs.androidx.room.compiler)
   "ksp"(libs.moshi.kotlin.codegen)
+}
+
+/**
+ * Bundle Amiri Arabic Naskh font in the APK so Quran typography is available
+ * offline on every supported Android device. The font is SIL Open Font License.
+ */
+val downloadAmiriQuranFont by tasks.registering {
+  val generatedRoot = generatedAmiriResources
+  val fontOutput = generatedRoot.map { it.file("res/font/amiri_quran.ttf") }
+  val licenseOutput = generatedRoot.map { it.file("assets/Amiri-OFL.txt") }
+  outputs.files(fontOutput, licenseOutput)
+
+  doLast {
+    fun download(url: String, destination: java.io.File) {
+      if (destination.exists() && destination.length() > 1024L) return
+      destination.parentFile.mkdirs()
+      val connection = (URL(url).openConnection() as HttpURLConnection).apply {
+        connectTimeout = 20000
+        readTimeout = 30000
+        setRequestProperty("User-Agent", "Noor-e-Hidayat-Android-Build")
+      }
+      connection.getInputStream().use { input ->
+        destination.outputStream().use { output -> input.copyTo(output) }
+      }
+      check(destination.exists() && destination.length() > 1024L) {
+        "Amiri font download was empty or incomplete: $url"
+      }
+    }
+
+    download(
+      "https://raw.githubusercontent.com/google/fonts/main/ofl/amiri/Amiri-Regular.ttf",
+      fontOutput.get().asFile
+    )
+    download(
+      "https://raw.githubusercontent.com/google/fonts/main/ofl/amiri/OFL.txt",
+      licenseOutput.get().asFile
+    )
+  }
+}
+
+tasks.named("preBuild").configure {
+  dependsOn(downloadAmiriQuranFont)
 }

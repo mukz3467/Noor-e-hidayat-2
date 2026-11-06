@@ -1,0 +1,79 @@
+{
+  "schemaVersion": 1,
+  "collection": "Sahih Muslim",
+  "collectionArabic": "صحيح مسلم",
+  "language": "ar",
+  "textType": "original Arabic",
+  "attribution": "Classical Arabic edition (public domain)",
+  "license": "Public Domain",
+  "licenseEvidenceUrl": "https://i-muslim.com/id/downloads",
+  "sourceUrl": "https://cdn.jsdelivr.net/gh/fawazahmed0/hadith-api@1/editions/ara-muslim.min.json",
+  "sourceId": "fawazahmed0:ara-muslim",
+  "sourceReportedCount": 7563,
+  "sourceRows": 7563,
+  "includedNonEmptyNarrations": 7360,
+  "omittedEmptyPlaceholders": 203,
+  "numberingNote": "Upstream hadith number, arabic_number and book number are preserved verbatim; 203 empty placeholder rows are excluded without renumbering.",
+  "parts": [
+    {
+      "asset": "islamic-library/sahih-muslim-ar/part-01.json",
+      "count": 500
+    },
+    {
+      "asset": "islamic-library/sahih-muslim-ar/part-02.json",
+      "count": 500
+    },
+    {
+      "asset": "islamic-library/sahih-muslim-ar/part-03.json",
+      "count": 500
+    },
+    {
+      "asset": "islamic-library/sahih-muslim-ar/part-04.json",
+      "count": 500
+    },
+    {
+      "asset": "islamic-library/sahih-muslim-ar/part-05.json",
+      "count": 500
+    },
+    {
+      "asset": "islamic-library/sahih-muslim-ar/part-06.json",
+      "count": 500
+    },
+    {
+      "asset": "islamic-library/sahih-muslim-ar/part-07.json",
+      "count": 500
+    },
+    {
+      "asset": "islamic-library/sahih-muslim-ar/part-08.json",
+      "count": 500
+    },
+    {
+      "asset": "islamic-library/sahih-muslim-ar/part-09.json",
+      "count": 500
+    },
+    {
+      "asset": "islamic-library/sahih-muslim-ar/part-10.json",
+      "count": 500
+    },
+    {
+      "asset": "islamic-library/sahih-muslim-ar/part-11.json",
+      "count": 500
+    },
+    {
+      "asset": "islamic-library/sahih-muslim-ar/part-12.json",
+      "count": 500
+    },
+    {
+      "asset": "islamic-library/sahih-muslim-ar/part-13.json",
+      "count": 500
+    },
+    {
+      "asset": "islamic-library/sahih-muslim-ar/part-14.json",
+      "count": 500
+    },
+    {
+      "asset": "islamic-library/sahih-muslim-ar/part-15.json",
+      "count": 360
+    }
+  ]
+}

@@ -7,6 +7,8 @@ import android.app.PendingIntent
 import android.content.BroadcastReceiver
 import android.content.Context
 import android.content.Intent
+import android.media.AudioAttributes
+import android.net.Uri
 import android.os.Build
 import androidx.core.app.NotificationCompat
 import androidx.core.app.NotificationManagerCompat
@@ -104,8 +106,17 @@ internal object PrayerReminderScheduler {
     fun createChannel(context: Context) {
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
             val manager = context.getSystemService(NotificationManager::class.java)
-            manager.createNotificationChannel(NotificationChannel(CHANNEL_ID, "Prayer reminders", NotificationManager.IMPORTANCE_DEFAULT).apply {
+            val adhanFile = MediaAssetManager.adhanFile(context)
+            val activeChannelId = if (adhanFile != null) "noor_prayer_reminders_adhan" else CHANNEL_ID
+            manager.createNotificationChannel(NotificationChannel(activeChannelId, "Prayer reminders", NotificationManager.IMPORTANCE_DEFAULT).apply {
                 description = "Notifications at the daily prayer times you enable"
+                if (adhanFile != null) {
+                    val audioAttributes = AudioAttributes.Builder()
+                        .setUsage(AudioAttributes.USAGE_NOTIFICATION)
+                        .setContentType(AudioAttributes.CONTENT_TYPE_SONIFICATION)
+                        .build()
+                    setSound(Uri.fromFile(adhanFile), audioAttributes)
+                }
             })
         }
     }
@@ -119,10 +130,30 @@ internal object PrayerReminderScheduler {
         createChannel(context)
         val openApp = context.packageManager.getLaunchIntentForPackage(context.packageName)
         val contentIntent = openApp?.let { PendingIntent.getActivity(context, 5001, it, PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE) }
-        val notification = NotificationCompat.Builder(context, CHANNEL_ID)
+        val languageCode = context.getSharedPreferences("noor_prefs", 0).getString("noor_app_lang", "ur") ?: "ur"
+        val prayerLabel = when (languageCode) {
+            "ur" -> mapOf("Fajr" to "فجر", "Dhuhr" to "ظہر", "Asr" to "عصر", "Maghrib" to "مغرب", "Isha" to "عشاء")[name] ?: name
+            "ar" -> mapOf("Fajr" to "الفجر", "Dhuhr" to "الظهر", "Asr" to "العصر", "Maghrib" to "المغرب", "Isha" to "العشاء")[name] ?: name
+            "hi" -> mapOf("Fajr" to "फ़ज्र", "Dhuhr" to "ज़ुहर", "Asr" to "असर", "Maghrib" to "मग़रिब", "Isha" to "इशा")[name] ?: name
+            else -> name
+        }
+        val notificationTitle = when (languageCode) {
+            "ur" -> "$prayerLabel کی نماز کا وقت"
+            "ar" -> "حان وقت صلاة $prayerLabel"
+            "hi" -> "$prayerLabel की नमाज़ का समय"
+            else -> "$name prayer time"
+        }
+        val notificationText = when (languageCode) {
+            "ur" -> "نماز ادا کرنے کا وقت ہو گیا ہے۔"
+            "ar" -> "حان وقت الصلاة، بادر إلى أدائها."
+            "hi" -> "नमाज़ अदा करने का समय हो गया है।"
+            else -> "It is time for $name. Take a moment for prayer."
+        }
+        val activeChannelId = if (MediaAssetManager.adhanFile(context) != null) "noor_prayer_reminders_adhan" else CHANNEL_ID
+        val notification = NotificationCompat.Builder(context, activeChannelId)
             .setSmallIcon(android.R.drawable.ic_lock_idle_alarm)
-            .setContentTitle("$name prayer time")
-            .setContentText("It is time for $name. Take a moment for prayer.")
+            .setContentTitle(notificationTitle)
+            .setContentText(notificationText)
             .setPriority(NotificationCompat.PRIORITY_DEFAULT)
             .setAutoCancel(true)
             .setContentIntent(contentIntent)

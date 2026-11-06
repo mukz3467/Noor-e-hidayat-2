@@ -63,7 +63,28 @@ data class Ayah(
     val arabicTafseer: String,
     val hindiTranslation: String,
     val words: List<WordMeaning> = emptyList(),
-    val revelationContext: String = ""
+    val revelationContext: String = "",
+    val translationEditions: List<AyahTranslationText> = emptyList(),
+    val tafsirEntries: List<AyahTafsirText> = emptyList()
+)
+
+data class AyahTafsirText(
+    val editionId: String,
+    val languageCode: String,
+    val scholarName: String,
+    val translatorName: String?,
+    val workTitle: String,
+    val text: String,
+    val sourceReference: String
+)
+
+data class AyahTranslationText(
+    val editionId: String,
+    val languageCode: String,
+    val scholarName: String,
+    val translatorName: String?,
+    val workTitle: String,
+    val text: String
 )
 
 data class WordMeaning(
@@ -139,7 +160,8 @@ data class HisnDuaItem(
     val urdu: String,
     val reference: String,
     val virtue: String,
-    val recommendedCount: Int = 1
+    val recommendedCount: Int = 1,
+    val referenceUrl: String = ""
 )
 
 // --- Feature 3: Authentic Hadith Models ---
@@ -152,7 +174,9 @@ data class HadithItem(
     val arabic: String,
     val english: String,
     val urdu: String,
-    val topic: String
+    val topic: String,
+    val referenceUrl: String = "",
+    val hindi: String = ""
 )
 
 // --- Feature 4: Hijri Calendar & Moon Models ---

@@ -1,7 +1,10 @@
 package com.noorehidayat.app
 
 import android.content.Context
+import java.io.IOException
+import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.delay
 import kotlinx.coroutines.withContext
 import org.json.JSONObject
 import java.net.HttpURLConnection
@@ -128,20 +131,69 @@ object QuranDataService {
         Surah(114, "الناس", "An-Nas", "Mankind", 6, "Meccan")
     )
 
-    private val shanENuzulMap = mapOf(
-        1 to "Revealed in Makkah early in the Prophetic mission. Known as Umm al-Kitab (Mother of the Book) and al-Sab' al-Mathani (The Seven Oft-Repeated Verses). It is the opening dialogue between servant and Creator recited in every unit of Salah.",
-        2 to "Revealed in Madinah over several years. Addresses legal frameworks, faith principles, the history of Adam (AS), Bani Israel, and ends with the legendary Ayat al-Kursi (2:255).",
-        36 to "Revealed in Makkah to reassure the Prophet ﷺ and validate the Divine message when Quraysh chieftains rejected resurrection. Considered the Heart of the Quran.",
-        55 to "Known as 'The Bride of the Quran' ('Aroos al-Quran). Highlights divine favors and repeatedly challenges mankind and jinn: 'Which of the favors of your Lord will you deny?'",
-        67 to "Revealed in Makkah. Recited before sleep to provide protection in the grave, focusing on Allah's absolute sovereignty and dominion over the cosmos.",
-        108 to "Revealed when al-'As ibn Wa'il mocked the Prophet ﷺ after the death of his son al-Qasim, calling him 'Abtar' (cut off). Allah responded by granting him al-Kawthar (Infinite Abundance).",
-        112 to "Revealed when the polytheists of Makkah asked the Prophet ﷺ: 'Describe your Lord's lineage to us.' Allah revealed the eternal declaration of Tawhid (Absolute Oneness).",
-        113 to "Revealed alongside Surah An-Nas (al-Mu'awwidhatayn) when a spell was attempted by Labid ibn al-A'sam. Jibril (AS) descended with these two Surahs for spiritual protection.",
-        114 to "Revealed for seeking refuge from the whisperings of Satan and evil instigators among mankind and jinn."
-    )
+    // Unsourced Asbab al-Nuzul summaries were removed. Do not present a general summary
+    // as a verified cause-of-revelation report; add only source-checked material here.
+
+    /** Number of Surahs whose complete Arabic text and Urdu/English translations are cached. */
+    fun cachedSurahCount(context: Context): Int {
+        val prefs = context.getSharedPreferences("noor_quran_cache", Context.MODE_PRIVATE)
+        return allSurahs.count { surah ->
+            val raw = prefs.getString("noor_ayahs_v3_${surah.number}", null) ?: return@count false
+            try {
+                parseBatchResponse(raw, surah.number).size == surah.ayahs
+            } catch (_: Exception) {
+                false
+            }
+        }
+    }
+
+    /** Download/cache all 114 complete Surahs. Progress is reported after each verified Surah. */
+    suspend fun downloadAllSurahs(context: Context, onProgress: (Int) -> Unit): Int {
+        var completed = 0
+        for (surah in allSurahs) {
+            var attempt = 0
+            while (true) {
+                try {
+                    getSurahBatch(context, surah.number)
+                    break
+                } catch (error: CancellationException) {
+                    throw error
+                } catch (error: Exception) {
+                    attempt++
+                    if (attempt >= 3) throw error
+                    delay(1000L * attempt)
+                }
+            }
+            completed++
+            onProgress(completed)
+            // Avoid sending 114 back-to-back requests to the public Quran data service.
+            delay(200L)
+        }
+        return completed
+    }
 
     suspend fun getSurahBatch(context: Context, surahNumber: Int): List<Ayah> = withContext(Dispatchers.IO) {
-        memCache[surahNumber]?.let { return@withContext it }
+        val expectedAyahCount = allSurahs.firstOrNull { it.number == surahNumber }?.ayahs
+            ?: throw IllegalArgumentException("Unknown Surah number: $surahNumber")
+        memCache[surahNumber]?.takeIf { it.size == expectedAyahCount }?.let { return@withContext it }
+
+        // Prefer the verified, bundled SQLite corpus. Keep the existing cache/network
+        // fallback for installations that do not yet contain the approved data package.
+        val localCorpus = runCatching {
+            IslamicContentDatabase.get(context).getQuranAyahs(surahNumber)
+        }.getOrDefault(emptyList())
+        if (
+            localCorpus.size == expectedAyahCount &&
+            localCorpus.all {
+                it.arabic.isNotBlank() &&
+                    it.englishTranslation.isNotBlank() &&
+                    it.urduTranslation.isNotBlank() &&
+                    it.hindiTranslation.isNotBlank()
+            }
+        ) {
+            memCache[surahNumber] = localCorpus
+            return@withContext localCorpus
+        }
 
         val prefs = context.getSharedPreferences("noor_quran_cache", Context.MODE_PRIVATE)
         val cacheKey = "noor_ayahs_v3_$surahNumber"
@@ -149,7 +201,7 @@ object QuranDataService {
         if (!cached.isNullOrBlank()) {
             try {
                 val list = parseBatchResponse(cached, surahNumber)
-                if (list.isNotEmpty()) {
+                if (list.size == expectedAyahCount) {
                     memCache[surahNumber] = list
                     return@withContext list
                 }
@@ -165,7 +217,7 @@ object QuranDataService {
             if (conn.responseCode in 200..299) {
                 val raw = conn.inputStream.bufferedReader().use { it.readText() }
                 val list = parseBatchResponse(raw, surahNumber)
-                if (list.isNotEmpty()) {
+                if (list.size == expectedAyahCount) {
                     prefs.edit().putString(cacheKey, raw).apply()
                     memCache[surahNumber] = list
                     return@withContext list
@@ -176,10 +228,8 @@ object QuranDataService {
             conn.disconnect()
         }
 
-        // Fallback: If network fails, provide curated initial Ayahs so app never crashes
-        val fallback = getFallbackAyahs(surahNumber)
-        memCache[surahNumber] = fallback
-        return@withContext fallback
+        // Never present a partial or fabricated Surah as the complete Quran.
+        throw IOException("The complete Surah is not available offline. Connect to the internet once to download and cache it.")
     }
 
     private fun parseBatchResponse(raw: String, surahNumber: Int): List<Ayah> {
@@ -210,14 +260,30 @@ object QuranDataService {
             }
         }
 
+        val expectedAyahCount = allSurahs.firstOrNull { it.number == surahNumber }?.ayahs
+            ?: throw IllegalArgumentException("Unknown Surah number: $surahNumber")
         val count = uthmaniAyahs.size
+        if (
+            count != expectedAyahCount ||
+            uthmaniAyahs.any { it.isBlank() } ||
+            englishAyahs.size != expectedAyahCount ||
+            urduAyahs.size != expectedAyahCount ||
+            hindiAyahs.size != expectedAyahCount ||
+            englishAyahs.any { it.isBlank() } ||
+            urduAyahs.any { it.isBlank() } ||
+            hindiAyahs.any { it.isBlank() }
+        ) {
+            throw IOException(
+                "Incomplete Quran response for Surah $surahNumber: expected $expectedAyahCount Arabic, English, Urdu and Hindi ayahs; received Arabic=$count, English=${englishAyahs.size}, Urdu=${urduAyahs.size}, Hindi=${hindiAyahs.size}."
+            )
+        }
         val result = mutableListOf<Ayah>()
-        val contextNote = shanENuzulMap[surahNumber] ?: ""
 
         for (idx in 0 until count) {
             val num = idx + 1
             val arabicText = uthmaniAyahs.getOrNull(idx) ?: ""
-            val words = generateWords(arabicText)
+            // Word meanings must come from a verified word-by-word dataset.
+            val words = emptyList<WordMeaning>()
 
             result.add(
                 Ayah(
@@ -228,39 +294,11 @@ object QuranDataService {
                     arabicTafseer = arabicTafseerAyahs.getOrNull(idx) ?: "",
                     hindiTranslation = hindiAyahs.getOrNull(idx) ?: "",
                     words = words,
-                    revelationContext = if (idx == 0) contextNote else ""
+                    revelationContext = ""
                 )
             )
         }
         return result
     }
 
-    private fun generateWords(arabic: String): List<WordMeaning> {
-        val tokens = arabic.split(" ").filter { it.isNotBlank() }
-        return tokens.take(4).map { token ->
-            WordMeaning(
-                arabic = token,
-                transliteration = token,
-                english = "Word breakdown",
-                urdu = "لفظی مفہوم"
-            )
-        }
-    }
-
-    private fun getFallbackAyahs(surahNumber: Int): List<Ayah> {
-        if (surahNumber == 1) {
-            return listOf(
-                Ayah(1, "بِسْمِ ٱللَّهِ ٱلرَّحْمَـٰنِ ٱلرَّحِيمِ", "In the name of Allah, the Entirely Merciful, the Especially Merciful.", "شروع اللہ کا نام لے کر جو بڑا مہربان نہایت رحم والا ہے", "بدأت قراءتي باسم الله مستعينا به", "अल्लाह के नाम से जो रहमान और रहीम है।", listOf(WordMeaning("بِسْمِ", "Bismi", "In name", "نام سے"), WordMeaning("ٱللَّهِ", "Allahi", "of Allah", "اللہ کے")), shanENuzulMap[1] ?: ""),
-                Ayah(2, "ٱلْحَمْدُ لِلَّهِ رَبِّ ٱلْعَـٰلَمِينَ", "[All] praise is [due] to Allah, Lord of the worlds -", "سب طرح کی تعریف خدا ہی کو (سزاوار) ہے جو تمام مخلوقات کا پروردگار ہے", "الثناء الكامل والشكر الخالص لله وحده", "सब प्रशंसा अल्लाह ही के लिए है जो सारे संसार का रब है।", listOf(WordMeaning("ٱلْحَمْدُ", "Al-Hamdu", "All praise", "سب تعریف"), WordMeaning("لِلَّهِ", "Lillahi", "to Allah", "اللہ کے لیے")), ""),
-                Ayah(3, "ٱلرَّحْمَـٰنِ ٱلرَّحِيمِ", "The Entirely Merciful, the Especially Merciful,", "بڑا مہربان نہایت رحم والا", "الرحمن الذي وسعت رحمته كل شيء", "बड़ा मेहरबान, निहायत रहम वाला।", listOf(WordMeaning("ٱلرَّحْمَـٰنِ", "Ar-Rahmani", "The Beneficent", "نہایت مہربان")), ""),
-                Ayah(4, "مَـٰلِكِ يَوْمِ ٱلدِّينِ", "Sovereign of the Day of Recompense.", "انصاف کے دن کا حاکم", "المتصرف وحده في يوم الحساب والجزاء", "बदले के दिन का मालिक।", listOf(WordMeaning("مَـٰلِكِ", "Maliki", "Master", "مالک")), ""),
-                Ayah(5, "إِيَّاكَ نَعْبُدُ وَإِيَّاكَ نَسْتَعِينُ", "It is You we worship and You we ask for help.", "(اے پروردگار) ہم تیری ہی عبادت کرتے ہیں اور تجھ ہی سے مدد مانگتے ہیں", "نخصك وحدك بالعبادة ونستعين بك وحدك", "हम तेरी ही इबादत करते हैं और तुझ ही से मदद चाहते हैं।", listOf(WordMeaning("إِيَّاكَ", "Iyyaka", "You alone", "تجھ ہی کو")), ""),
-                Ayah(6, "ٱهْدِنَا ٱلصِّرَٰطَ ٱلْمُسْتَقِيمَ", "Guide us to the straight path -", "ہم کو سیدھے رستے چلا", "وفقنا وأرشدنا إلى الطريق القويم", "हमें सीधे रास्ते पर चला।", listOf(WordMeaning("ٱهْدِنَا", "Ihdina", "Guide us", "ہدایت دے")), ""),
-                Ayah(7, "صِرَٰطَ ٱلَّذِينَ أَنْعَمْتَ عَلَيْهِمْ غَيْرِ ٱلْمَغْضُوبِ عَلَيْهِمْ وَلَا ٱلضَّآلِّينَ", "The path of those upon whom You have bestowed favor, not of those who have evoked [Your] anger or of those who are astray.", "ان لوگوں کے رستے جن پر تو اپنا فضل وکرم کرتا رہا نہ ان کے جن پر غصہ ہوتا رہا اور نہ گمراہوں کے", "طريق الذين تفضلت عليهم بالهداية", "उनका रास्ता जिन पर तूने इनाम किया, न उनका जिन पर क्रोध हुआ और न बहके हुओं का।", listOf(WordMeaning("صِرَٰطَ", "Sirata", "The path", "راستہ")), "")
-            )
-        }
-        return listOf(
-            Ayah(1, "بِسْمِ ٱللَّهِ ٱلرَّحْمَـٰنِ ٱلرَّحِيمِ", "In the name of Allah, the Entirely Merciful, the Especially Merciful.", "اللہ کے نام سے جو نہایت مہربان اور رحم فرمانے والا ہے", "بسم الله الرحمن الرحيم", "अल्लाह के नाम से जो रहमान और रहीम है।", emptyList(), shanENuzulMap[surahNumber] ?: "")
-        )
-    }
 }
