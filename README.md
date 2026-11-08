@@ -46,3 +46,19 @@ gradle testDebugUnitTest assembleDebug
 ```
 
 The GitHub Actions workflow at `.github/workflows/android-ci.yml` runs unit tests and assembles a debug APK for pull requests and pushes to the configured branches.
+
+## YouTube backend
+
+The repository now includes a separate Node.js service in `backend/` for YouTube lecture search, Haramain channel metadata, and source export.
+
+- `GET /api/youtube?q=...` returns parsed public YouTube search metadata with a 30-minute in-memory cache. This is an unofficial HTML adapter, not the official YouTube Data API; YouTube may block requests or change its page structure. The Android app falls back to its built-in YouTube search WebView when the backend is not configured or the parser cannot return results.
+- `GET /api/live-streams` returns the Saudi Quran TV and Saudi Sunnah TV channel live pages. The channels control stream availability; this endpoint does not claim that a live broadcast is always active.
+- `GET /api/export-codebase` and `GET /api/download-zip` export an allowlisted set of project source/configuration files. Secrets, signing keys, environment files and build outputs are excluded.
+
+Run the backend instructions in [backend/README.md](backend/README.md). To connect an Android build, pass the deployed HTTPS backend URL as the Gradle property `NOOR_BACKEND_URL`, for example:
+
+```bash
+gradle -PNOOR_BACKEND_URL=https://YOUR-BACKEND-HOST assembleDebug
+```
+
+Without this property, the app keeps its existing no-key YouTube WebView search and bundled channel fallback.
