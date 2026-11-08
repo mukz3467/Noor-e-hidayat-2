@@ -25,7 +25,7 @@ android {
     versionCode = 9
     versionName = "1.0.3"
 
-    val backendBaseUrl = providers.gradleProperty("NOOR_BACKEND_URL").orNull.orEmpty().trimEnd('/')
+    val backendBaseUrl = (providers.gradleProperty("NOOR_BACKEND_URL").orNull ?: System.getenv("NOOR_BACKEND_URL").orEmpty()).trimEnd('/')
     buildConfigField("String", "NOOR_BACKEND_BASE_URL", 34.toChar().toString() + backendBaseUrl + 34.toChar().toString())
 
     testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
