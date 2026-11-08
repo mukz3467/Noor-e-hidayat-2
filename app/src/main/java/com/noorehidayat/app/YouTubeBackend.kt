@@ -31,7 +31,7 @@ object YouTubeBackend {
         get() = BuildConfig.NOOR_BACKEND_BASE_URL.trim().trimEnd('/')
 
     val isConfigured: Boolean
-        get() = baseUrl.startsWith("https://") || baseUrl.startsWith("http://10.0.2.2")
+        get() = baseUrl.startsWith("https://")
 
     suspend fun searchVideos(query: String): List<BackendYouTubeVideo> =
         withContext(Dispatchers.IO) {
