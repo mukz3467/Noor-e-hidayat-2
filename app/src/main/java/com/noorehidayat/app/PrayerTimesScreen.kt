@@ -7,6 +7,7 @@ import android.location.Location
 import android.location.LocationListener
 import android.location.LocationManager
 import android.os.Build
+import android.os.Looper
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.animation.AnimatedVisibility
@@ -109,6 +110,61 @@ internal fun PrayerTimesScreen(appLanguage: AppLanguage = AppLanguage.ENGLISH) {
     var method by remember { mutableIntStateOf(prefs.getInt("prayer_method", 1)) }
     var school by remember { mutableIntStateOf(prefs.getInt("prayer_school", 1)) } // 1: Hanafi, 0: Shafi'i
     var methodsExpanded by remember { mutableStateOf(false) }
+    var prayerRemindersEnabled by remember {
+        mutableStateOf(prefs.getBoolean("prayer_reminders_enabled", false))
+    }
+
+    val notificationPermissionLauncher = rememberLauncherForActivityResult(
+        ActivityResultContracts.RequestPermission()
+    ) { granted ->
+        if (granted && loc != null && rows.isNotEmpty()) {
+            prefs.edit()
+                .putBoolean("prayer_reminders_enabled", true)
+                .putString("prayer_latitude", loc!!.latitude.toString())
+                .putString("prayer_longitude", loc!!.longitude.toString())
+                .putInt("prayer_method", method)
+                .putInt("prayer_school", school)
+                .apply()
+            prayerRemindersEnabled = true
+            error = ""
+        } else {
+            error = if (granted) {
+                "Wait until local prayer times are loaded before enabling reminders."
+            } else {
+                "Notification permission is required for prayer reminders."
+            }
+        }
+    }
+
+    fun setPrayerReminders(enabled: Boolean) {
+        if (!enabled) {
+            prayerRemindersEnabled = false
+            prefs.edit().putBoolean("prayer_reminders_enabled", false).apply()
+            PrayerReminderScheduler.cancelAll(ctx)
+            return
+        }
+        val currentLocation = loc
+        if (currentLocation == null || rows.isEmpty()) {
+            error = "Wait until local prayer times are loaded before enabling reminders."
+            return
+        }
+        if (
+            Build.VERSION.SDK_INT >= 33 &&
+            ctx.checkSelfPermission(Manifest.permission.POST_NOTIFICATIONS) != PackageManager.PERMISSION_GRANTED
+        ) {
+            notificationPermissionLauncher.launch(Manifest.permission.POST_NOTIFICATIONS)
+        } else {
+            prefs.edit()
+                .putBoolean("prayer_reminders_enabled", true)
+                .putString("prayer_latitude", currentLocation.latitude.toString())
+                .putString("prayer_longitude", currentLocation.longitude.toString())
+                .putInt("prayer_method", method)
+                .putInt("prayer_school", school)
+                .apply()
+            prayerRemindersEnabled = true
+            error = ""
+        }
+    }
 
     val isAdhanActive by AstronomicalPrayerCalculator.isAdhanPlaying.collectAsState()
     val adhanCountdown by AstronomicalPrayerCalculator.adhanCountdownSeconds.collectAsState()
@@ -116,28 +172,59 @@ internal fun PrayerTimesScreen(appLanguage: AppLanguage = AppLanguage.ENGLISH) {
     fun locate() {
         if (!permitted(ctx)) return
         try {
-            lm.getProviders(true).forEach { p ->
+            val providers = lm.getProviders(true)
+            val now = System.currentTimeMillis()
+            var bestLocation: Location? = null
+            providers.forEach { provider ->
                 try {
-                    val x = lm.getLastKnownLocation(p)
-                    if (x != null && (loc == null || x.time > (loc?.time ?: 0L))) loc = x
+                    val candidate = lm.getLastKnownLocation(provider)
+                    val ageMs = candidate?.let { now - it.time } ?: Long.MAX_VALUE
+                    if (candidate != null && ageMs in 0..21_600_000L &&
+                        (bestLocation == null || candidate.time > bestLocation!!.time)) {
+                        bestLocation = candidate
+                    }
                 } catch (_: SecurityException) {}
             }
-            if (loc == null) {
-                // Use default coordinates (e.g. Islamabad/Lahore 31.5204, 74.3587 or Makkah 21.4225, 39.8262)
-                loc = Location("default").apply {
-                    latitude = 31.5204
-                    longitude = 74.3587
-                }
+            if (bestLocation != null) {
+                loc = bestLocation
+                error = ""
+                return
             }
+            val provider = when {
+                LocationManager.NETWORK_PROVIDER in providers -> LocationManager.NETWORK_PROVIDER
+                LocationManager.GPS_PROVIDER in providers -> LocationManager.GPS_PROVIDER
+                else -> providers.firstOrNull()
+            }
+            if (provider == null) {
+                error = "No location provider is enabled. Turn on device location and retry."
+                return
+            }
+            error = "Waiting for a fresh device location…"
+            lm.requestSingleUpdate(provider, object : LocationListener {
+                override fun onLocationChanged(location: Location) {
+                    loc = location
+                    error = ""
+                }
+                @Deprecated("Deprecated in Android")
+                override fun onStatusChanged(provider: String?, status: Int, extras: android.os.Bundle?) = Unit
+                override fun onProviderEnabled(provider: String) = Unit
+                override fun onProviderDisabled(provider: String) {
+                    error = "Location provider was disabled. Turn on location and retry."
+                }
+            }, Looper.getMainLooper())
+        } catch (_: SecurityException) {
+            error = "Location permission is required for local prayer times."
         } catch (_: Exception) {
-            error = "Unable to read device location."
+            error = "Unable to acquire a fresh device location. Please retry."
         }
     }
 
     val launcher = rememberLauncherForActivityResult(ActivityResultContracts.RequestMultiplePermissions()) { r ->
         allowed = r.values.any { it }
         if (allowed) locate() else {
-            loc = Location("default").apply { latitude = 31.5204; longitude = 74.3587 }
+            loc = null
+            rows = emptyList()
+            error = "Location permission is required for local prayer times."
         }
     }
 
@@ -147,7 +234,14 @@ internal fun PrayerTimesScreen(appLanguage: AppLanguage = AppLanguage.ENGLISH) {
     }
 
     LaunchedEffect(loc?.latitude, loc?.longitude, method, school) {
-        val l = loc ?: Location("default").apply { latitude = 31.5204; longitude = 74.3587 }
+        val l = loc
+        if (l == null) {
+            rows = emptyList()
+            dateText = ""
+            loading = false
+            if (error.isBlank()) error = "Enable location and grant permission to calculate prayer times."
+            return@LaunchedEffect
+        }
         loading = true
         error = ""
         try {
@@ -164,9 +258,23 @@ internal fun PrayerTimesScreen(appLanguage: AppLanguage = AppLanguage.ENGLISH) {
                 PrayerRow("Maghrib", astro.maghrib, "المغرب", "مغرب"),
                 PrayerRow("Isha", astro.isha, "العشاء", "عشاء")
             )
-            dateText = astro.dateReadable
+            dateText = astro.dateReadable + " · Approximate offline solar calculation; method-specific angles are not applied."
+            error = "Online calculation unavailable. Offline times are estimates; verify with your local mosque."
         } finally {
             loading = false
+        }
+    }
+
+    LaunchedEffect(rows, loc?.latitude, loc?.longitude, method, school, prayerRemindersEnabled) {
+        val currentLocation = loc
+        if (prayerRemindersEnabled && currentLocation != null && rows.isNotEmpty()) {
+            prefs.edit()
+                .putString("prayer_latitude", currentLocation.latitude.toString())
+                .putString("prayer_longitude", currentLocation.longitude.toString())
+                .putInt("prayer_method", method)
+                .putInt("prayer_school", school)
+                .apply()
+            PrayerReminderScheduler.scheduleDay(ctx, rows.associate { it.name to it.time })
         }
     }
 
@@ -295,7 +403,8 @@ internal fun PrayerTimesScreen(appLanguage: AppLanguage = AppLanguage.ENGLISH) {
             // Location refresh
             OutlinedButton(
                 onClick = {
-                    launcher.launch(arrayOf(Manifest.permission.ACCESS_FINE_LOCATION, Manifest.permission.ACCESS_COARSE_LOCATION))
+                    if (permitted(ctx)) locate()
+                    else launcher.launch(arrayOf(Manifest.permission.ACCESS_FINE_LOCATION, Manifest.permission.ACCESS_COARSE_LOCATION))
                 },
                 colors = ButtonDefaults.outlinedButtonColors(contentColor = Gold),
                 border = BorderStroke(1.dp, Border),
@@ -309,6 +418,81 @@ internal fun PrayerTimesScreen(appLanguage: AppLanguage = AppLanguage.ENGLISH) {
 
         if (loading) {
             LinearProgressIndicator(Modifier.fillMaxWidth().padding(top = 10.dp), color = Gold)
+        }
+
+        Spacer(Modifier.height(8.dp))
+        Box(Modifier.fillMaxWidth()) {
+            OutlinedButton(
+                onClick = { methodsExpanded = true },
+                modifier = Modifier.fillMaxWidth(),
+                colors = ButtonDefaults.outlinedButtonColors(contentColor = Gold),
+                border = BorderStroke(1.dp, Border),
+                shape = RoundedCornerShape(10.dp)
+            ) {
+                Text(
+                    "Calculation method: ${prayerMethods.firstOrNull { it.first == method }?.second ?: "Select method"}",
+                    fontSize = 12.sp
+                )
+                Spacer(Modifier.width(6.dp))
+                Icon(Icons.Default.ArrowDropDown, contentDescription = null)
+            }
+            DropdownMenu(
+                expanded = methodsExpanded,
+                onDismissRequest = { methodsExpanded = false }
+            ) {
+                prayerMethods.forEach { (methodId, methodName) ->
+                    DropdownMenuItem(
+                        text = { Text(methodName) },
+                        onClick = {
+                            method = methodId
+                            prefs.edit().putInt("prayer_method", methodId).apply()
+                            methodsExpanded = false
+                        }
+                    )
+                }
+            }
+        }
+
+        Card(
+            modifier = Modifier.fillMaxWidth().padding(top = 8.dp),
+            shape = RoundedCornerShape(14.dp),
+            colors = CardDefaults.cardColors(containerColor = Panel),
+            border = BorderStroke(1.dp, Border)
+        ) {
+            Row(
+                modifier = Modifier.fillMaxWidth().padding(14.dp),
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                Column(Modifier.weight(1f)) {
+                    Text(
+                        if (appLanguage == AppLanguage.URDU) "نماز کے اوقات کی یاد دہانی" else "Prayer-time reminders",
+                        color = Cream,
+                        fontWeight = FontWeight.Bold,
+                        fontSize = 14.sp
+                    )
+                    Text(
+                        if (appLanguage == AppLanguage.URDU) "ہر نماز کے وقت نوٹیفکیشن" else "Notify at Fajr, Dhuhr, Asr, Maghrib and Isha",
+                        color = Muted,
+                        fontSize = 11.sp
+                    )
+                }
+                Switch(
+                    checked = prayerRemindersEnabled,
+                    onCheckedChange = { setPrayerReminders(it) }
+                )
+            }
+        }
+        Text(
+            if (appLanguage == AppLanguage.URDU)
+                "نوٹ: Android کی بیٹری سیونگ پابندیاں نوٹیفکیشن میں تاخیر کر سکتی ہیں۔"
+            else
+                "Note: Android battery restrictions may delay notifications; exact-alarm access is not requested.",
+            color = Muted,
+            fontSize = 10.sp,
+            lineHeight = 15.sp
+        )
+        if (error.isNotBlank()) {
+            Text(error, color = Gold, fontSize = 11.sp, lineHeight = 16.sp)
         }
 
         // Prayer Timetable List

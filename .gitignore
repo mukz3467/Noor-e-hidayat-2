@@ -16,3 +16,7 @@
 local.properties
 .env
 debug.keystore
+
+# Node backend
+backend/node_modules/
+backend/dist/

@@ -11,6 +11,7 @@ import android.hardware.SensorManager
 import android.location.Location
 import android.location.LocationListener
 import android.location.LocationManager
+import android.os.Looper
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.animation.animateColorAsState
@@ -69,7 +70,8 @@ internal fun QiblaScreen(appLanguage: AppLanguage = AppLanguage.ENGLISH) {
         val fineGranted = ContextCompat.checkSelfPermission(ctx, Manifest.permission.ACCESS_FINE_LOCATION) == PackageManager.PERMISSION_GRANTED
         val coarseGranted = ContextCompat.checkSelfPermission(ctx, Manifest.permission.ACCESS_COARSE_LOCATION) == PackageManager.PERMISSION_GRANTED
         if (!fineGranted && !coarseGranted) {
-            coordinates = Location("default").apply { latitude = 31.5204; longitude = 74.3587 }
+            coordinates = null
+            locationError = "Location permission is required to calculate your local Qibla direction."
             return
         }
 
@@ -79,18 +81,44 @@ internal fun QiblaScreen(appLanguage: AppLanguage = AppLanguage.ENGLISH) {
             for (p in providers) {
                 try {
                     val l = locationManager.getLastKnownLocation(p)
-                    if (l != null && (bestLoc == null || l.time > bestLoc.time)) {
+                    val ageMs = l?.let { System.currentTimeMillis() - it.time } ?: Long.MAX_VALUE
+                    if (l != null && ageMs in 0..21_600_000L &&
+                        (bestLoc == null || l.time > bestLoc!!.time)) {
                         bestLoc = l
                     }
                 } catch (_: SecurityException) {}
             }
             if (bestLoc != null) {
                 coordinates = bestLoc
+                locationError = ""
             } else {
-                coordinates = Location("default").apply { latitude = 31.5204; longitude = 74.3587 }
+                coordinates = null
+                locationError = "Waiting for a fresh device location…"
+                val provider = when {
+                    LocationManager.NETWORK_PROVIDER in providers -> LocationManager.NETWORK_PROVIDER
+                    LocationManager.GPS_PROVIDER in providers -> LocationManager.GPS_PROVIDER
+                    else -> providers.firstOrNull()
+                }
+                if (provider != null) {
+                    locationManager.requestSingleUpdate(provider, object : LocationListener {
+                        override fun onLocationChanged(location: Location) {
+                            coordinates = location
+                            locationError = ""
+                        }
+                        @Deprecated("Deprecated in Android")
+                        override fun onStatusChanged(provider: String?, status: Int, extras: android.os.Bundle?) = Unit
+                        override fun onProviderEnabled(provider: String) = Unit
+                        override fun onProviderDisabled(provider: String) {
+                            locationError = "Location provider was disabled."
+                        }
+                    }, Looper.getMainLooper())
+                } else {
+                    locationError = "No location provider is enabled. Turn on device location and retry."
+                }
             }
         } catch (e: Exception) {
-            locationError = "Unable to acquire GPS fix. Using default location."
+            coordinates = null
+            locationError = "Unable to acquire your location. Please try again."
         }
     }
 
@@ -124,7 +152,38 @@ internal fun QiblaScreen(appLanguage: AppLanguage = AppLanguage.ENGLISH) {
         }
     }
 
-    val loc = coordinates ?: Location("default").apply { latitude = 31.5204; longitude = 74.3587 }
+    val loc = coordinates
+    if (loc == null) {
+        Column(
+            Modifier.fillMaxSize().background(Emerald).padding(24.dp),
+            horizontalAlignment = Alignment.CenterHorizontally,
+            verticalArrangement = Arrangement.Center
+        ) {
+            Icon(Icons.Default.LocationOff, contentDescription = null, tint = Gold, modifier = Modifier.size(48.dp))
+            Spacer(Modifier.height(16.dp))
+            Text(
+                if (appLanguage == AppLanguage.URDU) "قبلہ معلوم کرنے کے لیے آپ کی موجودہ لوکیشن ضروری ہے" else "Your location is required for an accurate Qibla direction.",
+                color = Cream,
+                fontSize = 17.sp,
+                fontWeight = FontWeight.Bold
+            )
+            Spacer(Modifier.height(8.dp))
+            Text(locationError, color = Muted, fontSize = 13.sp)
+            Spacer(Modifier.height(16.dp))
+            Button(
+                onClick = {
+                    val fineGranted = ContextCompat.checkSelfPermission(ctx, Manifest.permission.ACCESS_FINE_LOCATION) == PackageManager.PERMISSION_GRANTED
+                    val coarseGranted = ContextCompat.checkSelfPermission(ctx, Manifest.permission.ACCESS_COARSE_LOCATION) == PackageManager.PERMISSION_GRANTED
+                    if (fineGranted || coarseGranted) refreshLocation()
+                    else permissionLauncher.launch(arrayOf(Manifest.permission.ACCESS_FINE_LOCATION, Manifest.permission.ACCESS_COARSE_LOCATION))
+                },
+                colors = ButtonDefaults.buttonColors(containerColor = Gold, contentColor = Emerald)
+            ) {
+                Text(if (appLanguage == AppLanguage.URDU) "لوکیشن کی اجازت دیں / دوبارہ کوشش کریں" else "Grant location / Retry")
+            }
+        }
+        return
+    }
     val bearing = calculateQiblaBearing(loc.latitude, loc.longitude)
     val distanceKm = AstronomicalPrayerCalculator.calculateDistanceToKaabaKm(loc.latitude, loc.longitude)
 

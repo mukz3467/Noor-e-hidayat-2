@@ -3,6 +3,8 @@ package com.noorehidayat.app
 import android.content.ClipData
 import android.content.ClipboardManager
 import android.content.Context
+import android.content.Intent
+import android.net.Uri
 import android.widget.Toast
 import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.background
@@ -25,6 +27,8 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.withContext
 
 @Composable
 internal fun HadithLibraryScreen(
@@ -35,96 +39,66 @@ internal fun HadithLibraryScreen(
     var searchQuery by remember { mutableStateOf("") }
     var selectedBook by remember { mutableStateOf("All") }
 
-    val books = remember {
-        listOf("All", "Sahih al-Bukhari", "Sahih Muslim", "40 Hadith Nawawi", "Riyad as-Salihin")
+    // No hand-written sample narrations: only source-backed records are displayed.
+    val sampleHadiths = emptyList<HadithItem>()
+
+    var hadiths by remember { mutableStateOf(sampleHadiths.filterNot { it.book == "Sahih Muslim" }) }
+
+    // Show only collections actually present in the verified local dataset.
+    val books = remember(hadiths) {
+        listOf("All") + hadiths.map { it.book }.distinct().sorted()
     }
 
-    val hadiths = remember {
-        listOf(
+    LaunchedEffect(appLanguage) {
+        val languageRecords = withContext(Dispatchers.IO) {
+            runCatching {
+                val database = IslamicContentDatabase.get(ctx)
+                listOf("en", "ur", "hi").associateWith { code ->
+                    database.getVerifiedHadiths(languageCode = code)
+                }
+            }.getOrDefault(emptyMap())
+        }
+        val bundledMuslimArabic = withContext(Dispatchers.IO) {
+            runCatching { SahihMuslimArabicCorpus.load(ctx) }.getOrDefault(emptyList())
+        }
+
+        // Join translations by the stable source hadith ID. A missing edition stays
+        // empty; the UI explicitly reports that it is unavailable rather than translating it.
+        val recordsByLanguage = languageRecords.mapValues { (_, rows) ->
+            rows.associateBy { "${it.collectionId}:${it.id}" }
+        }
+        val baseRecords = languageRecords.values.flatten()
+            .distinctBy { "${it.collectionId}:${it.id}" }
+        val databaseItems = baseRecords.map { record ->
+            val collectionTitle = if (record.collectionId == "sahih_al_bukhari") {
+                "Sahih al-Bukhari"
+            } else {
+                "Sahih Muslim"
+            }
             HadithItem(
-                id = "1",
-                book = "Sahih al-Bukhari",
-                chapter = "Book of Faith",
-                hadithNumber = "Hadith 1",
-                narrator = "Umar ibn al-Khattab (RA)",
-                arabic = "إِنَّمَا الأَعْمَالُ بِالنِّيَّاتِ، وَإِنَّمَا لِكُلِّ امْرِئٍ مَا نَوَى",
-                english = "Actions are judged by intentions, and every person will get what they intended.",
-                urdu = "اعمال کا دارومدار نیتوں پر ہے، اور ہر انسان کو وہی ملے گا جس کی اس نے نیت کی۔",
-                topic = "Intention & Sincerity"
-            ),
-            HadithItem(
-                id = "2",
-                book = "Sahih al-Bukhari",
-                chapter = "Good Manners",
-                hadithNumber = "Hadith 13",
-                narrator = "Anas ibn Malik (RA)",
-                arabic = "لَا يُؤْمِنُ أَحَدُكُمْ حَتَّى يُحِبَّ لِأَخِيهِ مَا يُحِبُّ لِنَفْسِهِ",
-                english = "None of you truly believes until he loves for his brother what he loves for himself.",
-                urdu = "تم میں سے کوئی شخص اس وقت تک مومن نہیں ہو سکتا جب تک وہ اپنے بھائی کے لیے وہی پسند نہ کرے جو اپنے لیے پسند کرتا ہے۔",
-                topic = "Brotherhood & Love"
-            ),
-            HadithItem(
-                id = "3",
-                book = "Sahih Muslim",
-                chapter = "Virtues & Etiquette",
-                hadithNumber = "Hadith 2564",
-                narrator = "Abu Hurairah (RA)",
-                arabic = "إِنَّ اللَّهَ لَا يَنْظُرُ إِلَى صُوَرِكُمْ وَأَمْوَالِكُمْ، وَلَكِنْ يَنْظُرُ إِلَى قُلُوبِكُمْ وَأَعْمَالِكُمْ",
-                english = "Verily, Allah does not look at your outward appearances or your wealth, but He looks at your hearts and your deeds.",
-                urdu = "بے شک اللہ تعالی تمہاری صورتوں اور تمہارے مالوں کو نہیں دیکھتا، بلکہ وہ تمہارے دلوں اور تمہارے اعمال کو دیکھتا ہے۔",
-                topic = "Purity of Heart"
-            ),
-            HadithItem(
-                id = "4",
-                book = "40 Hadith Nawawi",
-                chapter = "Foundations of Islam",
-                hadithNumber = "Hadith 2",
-                narrator = "Umar ibn al-Khattab (RA)",
-                arabic = "الإِحْسَانُ أَنْ تَعْبُدَ اللَّهَ كَأَنَّكَ تَرَاهُ، فَإِنْ لَمْ تَكُنْ تَرَاهُ فَإِنَّهُ يَرَاكَ",
-                english = "Ihsan (spiritual excellence) is to worship Allah as though you see Him; and if you do not see Him, indeed He sees you.",
-                urdu = "احسان یہ ہے کہ تم اللہ کی عبادت اس طرح کرو گویا تم اسے دیکھ رہے ہو، اور اگر تم اسے نہ دیکھ سکو تو یقین جانو کہ وہ تمہیں دیکھ رہا ہے۔",
-                topic = "Ihsan & Excellence"
-            ),
-            HadithItem(
-                id = "5",
-                book = "Sahih al-Bukhari",
-                chapter = "Virtue of Quran",
-                hadithNumber = "Hadith 5027",
-                narrator = "Uthman ibn Affan (RA)",
-                arabic = "خَيْرُكُمْ مَنْ تَعَلَّمَ الْقُرْآنَ وَعَلَّمَهُ",
-                english = "The best among you are those who learn the Quran and teach it to others.",
-                urdu = "تم میں سے سب سے بہتر وہ شخص ہے جس نے قرآن سیکھا اور دوسروں کو سکھایا۔",
-                topic = "Quran Learning"
-            ),
-            HadithItem(
-                id = "6",
-                book = "Sahih Muslim",
-                chapter = "Charity & Kindness",
-                hadithNumber = "Hadith 1009",
-                narrator = "Abu Dharr (RA)",
-                arabic = "تَبَسُّمُكَ فِي وَجْهِ أَخِيكَ لَكَ صَدَقَةٌ",
-                english = "Smiling in the face of your brother is an act of charity for you.",
-                urdu = "اپنے بھائی کے سامنے مسکرانا بھی تمہارے لیے صدقہ ہے۔",
-                topic = "Kindness & Charity"
-            ),
-            HadithItem(
-                id = "7",
-                book = "Riyad as-Salihin",
-                chapter = "Patience",
-                hadithNumber = "Hadith 27",
-                narrator = "Suhaib (RA)",
-                arabic = "عَجَبًا لِأَمْرِ الْمُؤْمِنِ، إِنَّ أَمْرَهُ كُلَّهُ خَيْرٌ، وَلَيْسَ ذَاكَ لِأَحَدٍ إِلَّا لِلْمُؤْمِنِ",
-                english = "How wonderful is the affair of the believer, for all his affairs are good! If good happens, he gives thanks, and if hardship strikes, he shows patience...",
-                urdu = "مومن کا معاملہ بھی خوب ہے! اس کے ہر معاملے میں خیر ہے؛ اگر اسے خوشی ملے تو وہ شکر کرتا ہے، اور اگر کوئی تکلیف پہنچے تو صبر کرتا ہے...",
-                topic = "Patience & Gratitude"
+                id = record.id,
+                book = collectionTitle,
+                chapter = record.chapterTitle ?: record.bookTitle,
+                hadithNumber = record.id,
+                narrator = record.narrator.orEmpty(),
+                arabic = record.arabicText,
+                english = recordsByLanguage["en"]?.get("${record.collectionId}:${record.id}")?.translation.orEmpty(),
+                urdu = recordsByLanguage["ur"]?.get("${record.collectionId}:${record.id}")?.translation.orEmpty(),
+                topic = record.bookTitle,
+                referenceUrl = "",
+                hindi = recordsByLanguage["hi"]?.get("${record.collectionId}:${record.id}")?.translation.orEmpty()
             )
-        )
+        }
+        val databaseMuslimNumbers = baseRecords
+            .filter { it.collectionId == "sahih_al_muslim" }
+            .map { it.id }
+            .toSet()
+        hadiths = databaseItems + bundledMuslimArabic.filterNot { it.id in databaseMuslimNumbers }
     }
-
-    val filtered = remember(searchQuery, selectedBook) {
+    val filtered = remember(searchQuery, selectedBook, hadiths) {
         hadiths.filter {
             (selectedBook == "All" || it.book == selectedBook) &&
-            (searchQuery.isBlank() || it.english.contains(searchQuery, true) || it.urdu.contains(searchQuery) || it.arabic.contains(searchQuery) || it.topic.contains(searchQuery, true) || it.narrator.contains(searchQuery, true))
+            (searchQuery.isBlank() || it.english.contains(searchQuery, true) || it.urdu.contains(searchQuery) || it.hindi.contains(searchQuery) || it.arabic.contains(searchQuery) || it.topic.contains(searchQuery, true) || it.narrator.contains(searchQuery, true))
         }
     }
 
@@ -143,7 +117,7 @@ internal fun HadithLibraryScreen(
             fontWeight = FontWeight.Bold
         )
         Text(
-            if (appLanguage == AppLanguage.URDU) "مستند احادیثِ نبوی ﷺ کا ذخیرہ" else "Authentic Hadith Library",
+            if (appLanguage == AppLanguage.URDU) "منتخب احادیث مع حوالہ جات" else "Selected Hadith References",
             color = Cream,
             fontSize = 22.sp,
             fontWeight = FontWeight.Bold,
@@ -216,7 +190,8 @@ internal fun HadithLibraryScreen(
                             Row {
                                 IconButton(onClick = {
                                     val cm = ctx.getSystemService(Context.CLIPBOARD_SERVICE) as ClipboardManager
-                                    val clip = ClipData.newPlainText(item.book, "${item.arabic}\n${item.urdu}\n${item.english}\n[${item.book} - ${item.hadithNumber}]")
+                                    val clipText = listOf(item.arabic, item.english, item.urdu, item.hindi, "[${item.book} - ${item.hadithNumber}]").filter { it.isNotBlank() }.joinToString("\n\n")
+                                    val clip = ClipData.newPlainText(item.book, clipText)
                                     cm.setPrimaryClip(clip)
                                     Toast.makeText(ctx, "Hadith copied to clipboard", Toast.LENGTH_SHORT).show()
                                 }) {
@@ -232,7 +207,8 @@ internal fun HadithLibraryScreen(
                             }
                         }
 
-                        // Arabic Hadith
+                        // Arabic original text
+                        Text("Arabic · Original", color = Gold, fontSize = 11.sp, fontWeight = FontWeight.Bold)
                         Text(
                             item.arabic,
                             color = Cream,
@@ -245,15 +221,33 @@ internal fun HadithLibraryScreen(
                                 .padding(vertical = 10.dp)
                         )
 
-                        Text("Narrated by: ${item.narrator}", color = Gold, fontSize = 11.sp, fontStyle = androidx.compose.ui.text.font.FontStyle.Italic)
-                        Spacer(Modifier.height(6.dp))
+                        if (item.narrator.isNotBlank()) {
+                            Text("Narrated by: ${item.narrator}", color = Gold, fontSize = 11.sp, fontStyle = androidx.compose.ui.text.font.FontStyle.Italic)
+                            Spacer(Modifier.height(6.dp))
+                        }
 
-                        Text(
-                            if (appLanguage == AppLanguage.URDU) item.urdu else item.english,
-                            color = Cream,
-                            fontSize = 13.sp,
-                            lineHeight = 21.sp
-                        )
+                        listOf(
+                            Triple("English", item.english, false),
+                            Triple("اردو", item.urdu, true),
+                            Triple("हिन्दी", item.hindi, false)
+                        ).forEach { (languageLabel, translationText, rtl) ->
+                            Spacer(Modifier.height(5.dp))
+                            Text(languageLabel, color = Gold, fontSize = 11.sp, fontWeight = FontWeight.Bold)
+                            Text(
+                                translationText.ifBlank {
+                                    when (languageLabel) {
+                                        "اردو" -> "اس روایت کا مستند اردو ترجمہ اس وقت تصدیق شدہ ڈیٹا میں دستیاب نہیں۔"
+                                        "हिन्दी" -> "इस रिवायत का सत्यापित हिंदी अनुवाद अभी उपलब्ध नहीं है।"
+                                        else -> "A verified English translation is not available for this narration yet."
+                                    }
+                                },
+                                color = if (translationText.isBlank()) Muted else Cream,
+                                fontSize = 13.sp,
+                                lineHeight = 21.sp,
+                                textAlign = if (rtl) TextAlign.End else TextAlign.Start,
+                                modifier = Modifier.fillMaxWidth()
+                            )
+                        }
 
                         Spacer(Modifier.height(8.dp))
                         Box(
@@ -262,6 +256,23 @@ internal fun HadithLibraryScreen(
                                 .padding(horizontal = 10.dp, vertical = 4.dp)
                         ) {
                             Text("Topic: ${item.topic}", color = Muted, fontSize = 10.sp)
+                        }
+                        if (item.referenceUrl.isNotBlank()) {
+                            TextButton(
+                                onClick = {
+                                    try {
+                                        ctx.startActivity(Intent(Intent.ACTION_VIEW, Uri.parse(item.referenceUrl)))
+                                    } catch (_: Exception) {
+                                        Toast.makeText(ctx, "Unable to open the source reference.", Toast.LENGTH_SHORT).show()
+                                    }
+                                }
+                            ) {
+                                Text(
+                                    if (appLanguage == AppLanguage.URDU) "اصل حوالہ دیکھیں" else "Open source reference",
+                                    color = Gold,
+                                    fontSize = 12.sp
+                                )
+                            }
                         }
                     }
                 }

@@ -15,14 +15,37 @@ import java.util.Calendar
 internal const val DAILY_REMINDER_CHANNEL = "noor_daily_islamic_reminders"
 private const val DAILY_REMINDER_ACTION = "com.noorehidayat.app.DAILY_REMINDER"
 
-internal fun dailyReminderMessage(dayOfYear: Int): String {
-    val messages = listOf(
-        "Take a few minutes for Quran recitation today.",
-        "Make time for dhikr and dua today.",
-        "Reflect on the meaning of one Quran ayah today.",
-        "Pause, be grateful, and remember Allah today.",
-        "Set aside a quiet moment for prayer and reflection."
-    )
+internal fun dailyReminderMessage(dayOfYear: Int, languageCode: String = "en"): String {
+    val messages = when (languageCode) {
+        "ur" -> listOf(
+            "آج قرآنِ پاک کی تلاوت کے لیے چند منٹ نکالیں۔",
+            "آج ذکر اور دعا کے لیے وقت ضرور نکالیں۔",
+            "آج قرآنِ پاک کی ایک آیت کا مفہوم سمجھنے کی کوشش کریں۔",
+            "اللہ کی نعمتوں پر شکر ادا کریں اور اسے یاد کریں۔",
+            "نماز اور غور و فکر کے لیے کچھ وقت مخصوص کریں۔"
+        )
+        "ar" -> listOf(
+            "خصص بضع دقائق اليوم لتلاوة القرآن الكريم.",
+            "اجعل وقتاً للذكر والدعاء اليوم.",
+            "تدبر معنى آية واحدة من القرآن اليوم.",
+            "اشكر الله على نعمه واذكره اليوم.",
+            "خصص وقتاً هادئاً للصلاة والتأمل."
+        )
+        "hi" -> listOf(
+            "आज कुरआन की तिलावत के लिए कुछ मिनट निकालें।",
+            "आज ज़िक्र और दुआ के लिए समय निकालें।",
+            "आज कुरआन की एक आयत का अर्थ समझें।",
+            "अल्लाह की नेमतों का शुक्र अदा करें।",
+            "नमाज़ और चिंतन के लिए कुछ समय रखें।"
+        )
+        else -> listOf(
+            "Take a few minutes for Quran recitation today.",
+            "Make time for dhikr and dua today.",
+            "Reflect on the meaning of one Quran ayah today.",
+            "Pause, be grateful, and remember Allah today.",
+            "Set aside a quiet moment for prayer and reflection."
+        )
+    }
     return messages[Math.floorMod(dayOfYear, messages.size)]
 }
 
@@ -32,9 +55,12 @@ internal object DailyReminderScheduler {
     fun schedule(context: Context) {
         if (!context.getSharedPreferences("noor_prefs", 0).getBoolean("daily_reminder_enabled", false)) return
         createChannel(context)
+        val prefs = context.getSharedPreferences("noor_prefs", 0)
+        val reminderHour = prefs.getInt("daily_reminder_hour", 9).coerceIn(0, 23)
+        val reminderMinute = prefs.getInt("daily_reminder_minute", 0).coerceIn(0, 59)
         val calendar = Calendar.getInstance().apply {
-            set(Calendar.HOUR_OF_DAY, 9)
-            set(Calendar.MINUTE, 0)
+            set(Calendar.HOUR_OF_DAY, reminderHour)
+            set(Calendar.MINUTE, reminderMinute)
             set(Calendar.SECOND, 0)
             set(Calendar.MILLISECOND, 0)
             if (timeInMillis <= System.currentTimeMillis()) add(Calendar.DAY_OF_YEAR, 1)
@@ -67,14 +93,21 @@ internal object DailyReminderScheduler {
     fun notifyAndReschedule(context: Context) {
         if (!context.getSharedPreferences("noor_prefs", 0).getBoolean("daily_reminder_enabled", false)) return
         createChannel(context)
-        val message = dailyReminderMessage(Calendar.getInstance().get(Calendar.DAY_OF_YEAR))
+        val languageCode = context.getSharedPreferences("noor_prefs", 0).getString("noor_app_lang", "ur") ?: "ur"
+        val message = dailyReminderMessage(Calendar.getInstance().get(Calendar.DAY_OF_YEAR), languageCode)
+        val title = when (languageCode) {
+            "ur" -> "نورِ ہدایت · روزانہ یاد دہانی"
+            "ar" -> "نور الهداية · تذكير يومي"
+            "hi" -> "नूर-ए-हिदायत · दैनिक अनुस्मारक"
+            else -> "Noor-e-Hidayat · Daily reminder"
+        }
         val launchIntent = context.packageManager.getLaunchIntentForPackage(context.packageName)
         val contentIntent = launchIntent?.let {
             PendingIntent.getActivity(context, 7202, it, PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE)
         }
         val notification = NotificationCompat.Builder(context, DAILY_REMINDER_CHANNEL)
             .setSmallIcon(android.R.drawable.ic_dialog_info)
-            .setContentTitle("Noor-e-Hidayat · Daily reminder")
+            .setContentTitle(title)
             .setContentText(message)
             .setStyle(NotificationCompat.BigTextStyle().bigText(message))
             .setAutoCancel(true)

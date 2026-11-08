@@ -4,52 +4,20 @@ object IslamicContentData {
 
     val liveStreams = listOf(
         LiveStream(
-            id = "makkah_1",
-            title = "Makkah Live · Saudi Quran TV",
-            titleUrdu = "مکہ مکرمہ لائیو · سعودی قرآن چینل",
+            id = "makkah_official",
+            title = "Makkah · Saudi Quran TV (Official)",
+            titleUrdu = "مکہ مکرمہ · سعودی قرآن چینل",
             location = "Masjid al-Haram, Makkah",
-            youtubeId = "eC4LfEVxvKg",
-            description = "Official 24/7 high-definition broadcast directly from the Holy Kaaba and Mataf courtyard."
+            youtubeId = "channel:UCos52azQNBgW63_9uDJoPDA",
+            description = "Official Saudi Quran TV broadcast from Masjid al-Haram. Availability is controlled by the broadcaster."
         ),
         LiveStream(
-            id = "makkah_2",
-            title = "Makkah 24/7 · Kaaba Tawaf Relay",
-            titleUrdu = "کعبہ شریف طواف لائیو براڈکاسٹ",
-            location = "Masjid al-Haram, Makkah",
-            youtubeId = "vdvjUpl03q0",
-            description = "Continuous live stream of pilgrims performing Tawaf around the Holy Kaaba."
-        ),
-        LiveStream(
-            id = "makkah_3",
-            title = "Grand Mosque Makkah · Live View",
-            titleUrdu = "مسجد حرام براہ راست منظر",
-            location = "Masjid al-Haram, Makkah",
-            youtubeId = "Vmnj5x8H744",
-            description = "Grand Mosque live prayer and panoramic view of Makkah al-Mukarramah."
-        ),
-        LiveStream(
-            id = "madinah_1",
-            title = "Madinah Green Dome & Courtyard",
-            titleUrdu = "گنبد خضراء مدینہ منورہ لائیو",
+            id = "madinah_official",
+            title = "Madinah · Saudi Sunnah TV (Official)",
+            titleUrdu = "مدینہ منورہ · سعودی سنہ چینل",
             location = "Al-Masjid an-Nabawi, Madinah",
-            youtubeId = "BtMUUgApnPs",
-            description = "Peaceful 24/7 live view of the revered Green Dome and Prophet's Mosque courtyard."
-        ),
-        LiveStream(
-            id = "madinah_2",
-            title = "Madinah Live · Saudi Sunnah TV",
-            titleUrdu = "مدینہ منورہ لائیو · سعودی سنہ چینل",
-            location = "Al-Masjid an-Nabawi, Madinah",
-            youtubeId = "Rs7St51oDDc",
-            description = "Official 24/7 live transmission from the Prophet's Mosque in Madinah."
-        ),
-        LiveStream(
-            id = "madinah_3",
-            title = "Al-Masjid an-Nabawi · Rawdah View",
-            titleUrdu = "مسجد نبوی شریف · روضہ و صحن",
-            location = "Al-Masjid an-Nabawi, Madinah",
-            youtubeId = "dp7m-TdWlB8",
-            description = "Daily prayers and panoramic broadcast from the blessed city of Madinah."
+            youtubeId = "channel:UCROKYPep-UuODNwyipe6JMw",
+            description = "Official Saudi Sunnah TV broadcast from Al-Masjid an-Nabawi. Availability is controlled by the broadcaster."
         )
     )
 
