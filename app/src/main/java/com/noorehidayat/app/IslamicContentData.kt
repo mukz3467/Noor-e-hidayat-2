@@ -8,7 +8,7 @@ object IslamicContentData {
             title = "Makkah · Saudi Quran TV (Official)",
             titleUrdu = "مکہ مکرمہ · سعودی قرآن چینل",
             location = "Masjid al-Haram, Makkah",
-            youtubeId = "fZvuHkHYaXk",
+            youtubeId = "channel:UCos52azQNBgW63_9uDJoPDA",
             description = "Official Saudi Quran TV broadcast from Masjid al-Haram. Availability is controlled by the broadcaster."
         ),
         LiveStream(
@@ -16,7 +16,7 @@ object IslamicContentData {
             title = "Madinah · Saudi Sunnah TV (Official)",
             titleUrdu = "مدینہ منورہ · سعودی سنہ چینل",
             location = "Al-Masjid an-Nabawi, Madinah",
-            youtubeId = "4bSdHQSeHLo",
+            youtubeId = "channel:UCROKYPep-UuODNwyipe6JMw",
             description = "Official Saudi Sunnah TV broadcast from Al-Masjid an-Nabawi. Availability is controlled by the broadcaster."
         )
     )
