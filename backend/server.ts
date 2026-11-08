@@ -51,7 +51,7 @@ function extractInitialData(html: string): unknown | null {
     let escaped = false;
 
     for (let i = start; i < html.length; i++) {
-      const char = html[i];
+      const char = html.charAt(i);
       if (inString) {
         if (escaped) escaped = false;
         else if (char.charCodeAt(0) === 92) escaped = true;
