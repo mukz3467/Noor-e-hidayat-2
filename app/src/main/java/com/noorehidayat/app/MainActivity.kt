@@ -1482,7 +1482,17 @@ private fun LiveHarameynScreen(
     selectedStream: LiveStream,
     onSelectStream: (LiveStream) -> Unit
 ) {
-    val context = LocalContext.current
+    var backendStreams by remember { mutableStateOf<List<LiveStream>>(emptyList()) }
+    LaunchedEffect(YouTubeBackend.isConfigured) {
+        if (YouTubeBackend.isConfigured) {
+            val fetched = runCatching { YouTubeBackend.liveStreams() }.getOrDefault(emptyList())
+            if (fetched.isNotEmpty()) {
+                backendStreams = fetched
+                if (fetched.none { it.id == selectedStream.id }) onSelectStream(fetched.first())
+            }
+        }
+    }
+    val streams = backendStreams.ifEmpty { IslamicContentData.liveStreams }
     Column(
         Modifier
             .fillMaxSize()
@@ -1547,7 +1557,7 @@ private fun LiveHarameynScreen(
                     verticalArrangement = Arrangement.spacedBy(8.dp),
                     contentPadding = PaddingValues(top = 8.dp, bottom = 20.dp)
                 ) {
-                    items(IslamicContentData.liveStreams) { stream ->
+                    items(streams) { stream ->
                         val isSelected = stream.id == selectedStream.id
                         Card(
                             modifier = Modifier
@@ -1656,7 +1666,24 @@ private fun IslamicLecturesScreen(
                             Text(if (appLanguage == AppLanguage.URDU) "بند کریں" else "Close search", color = Gold)
                         }
                     }
-                    YouTubeSearchWebView(query = activeSearch, modifier = Modifier.fillMaxWidth().weight(1f))
+                    BackendYouTubeSearch(
+                        query = activeSearch,
+                        modifier = Modifier.fillMaxWidth().weight(1f),
+                        onSelectVideo = { video ->
+                            onSelectLecture(
+                                LectureVideo(
+                                    id = "backend_" + video.id,
+                                    title = video.title,
+                                    speaker = video.channel,
+                                    category = "Search",
+                                    youtubeId = video.id,
+                                    duration = video.duration.ifBlank { "YouTube" }
+                                )
+                            )
+                            activeSearch = ""
+                            videoQuery = ""
+                        }
+                    )
                 } else {
                     LazyRow(horizontalArrangement = Arrangement.spacedBy(6.dp)) {
                         items(IslamicContentData.lectureCategories) { cat ->
@@ -1743,6 +1770,122 @@ private fun YouTubeSearchWebView(query: String, modifier: Modifier = Modifier) {
         },
         modifier = modifier
     )
+}
+
+
+@Composable
+private fun BackendYouTubeSearch(
+    query: String,
+    modifier: Modifier = Modifier,
+    onSelectVideo: (BackendYouTubeVideo) -> Unit
+) {
+    // If no backend URL has been configured in the Android build, keep the
+    // existing official YouTube search page as the zero-key fallback.
+    if (!YouTubeBackend.isConfigured) {
+        YouTubeSearchWebView(query = query, modifier = modifier)
+        return
+    }
+
+    var results by remember(query) { mutableStateOf<List<BackendYouTubeVideo>>(emptyList()) }
+    var loading by remember(query) { mutableStateOf(true) }
+    var errorMessage by remember(query) { mutableStateOf<String?>(null) }
+
+    LaunchedEffect(query) {
+        loading = true
+        errorMessage = null
+        try {
+            results = YouTubeBackend.searchVideos(query)
+        } catch (error: Exception) {
+            results = emptyList()
+            errorMessage = error.message ?: "Search service is temporarily unavailable."
+        } finally {
+            loading = false
+        }
+    }
+
+    Column(modifier = modifier) {
+        when {
+            loading -> Box(
+                Modifier.fillMaxSize(),
+                contentAlignment = Alignment.Center
+            ) {
+                CircularProgressIndicator(color = Gold)
+            }
+
+            results.isNotEmpty() -> LazyColumn(
+                modifier = Modifier.fillMaxSize(),
+                verticalArrangement = Arrangement.spacedBy(8.dp),
+                contentPadding = PaddingValues(vertical = 8.dp)
+            ) {
+                items(results) { video ->
+                    Card(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .clickable { onSelectVideo(video) },
+                        shape = RoundedCornerShape(13.dp),
+                        colors = CardDefaults.cardColors(containerColor = Panel),
+                        border = BorderStroke(1.dp, Border)
+                    ) {
+                        Row(
+                            Modifier.fillMaxWidth().padding(12.dp),
+                            verticalAlignment = Alignment.CenterVertically
+                        ) {
+                            Icon(
+                                Icons.Default.PlayCircle,
+                                contentDescription = "Play video",
+                                tint = Gold,
+                                modifier = Modifier.size(34.dp)
+                            )
+                            Spacer(Modifier.width(12.dp))
+                            Column(Modifier.weight(1f)) {
+                                Text(
+                                    video.title,
+                                    color = Cream,
+                                    fontWeight = FontWeight.Bold,
+                                    fontSize = 13.sp,
+                                    maxLines = 2,
+                                    overflow = TextOverflow.Ellipsis
+                                )
+                                Text(
+                                    video.channel + if (video.duration.isNotBlank()) " · " + video.duration else "",
+                                    color = Muted,
+                                    fontSize = 11.sp,
+                                    maxLines = 1,
+                                    overflow = TextOverflow.Ellipsis
+                                )
+                                if (video.views.isNotBlank() || video.publishedTime.isNotBlank()) {
+                                    Text(
+                                        listOf(video.views, video.publishedTime).filter { it.isNotBlank() }.joinToString(" · "),
+                                        color = Muted,
+                                        fontSize = 10.sp
+                                    )
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+
+            else -> Column(Modifier.fillMaxSize()) {
+                Text(
+                    errorMessage ?: "No parsed results were returned by the search service.",
+                    color = Muted,
+                    fontSize = 12.sp,
+                    modifier = Modifier.padding(vertical = 8.dp)
+                )
+                Text(
+                    "Opening official YouTube search as a fallback…",
+                    color = Gold,
+                    fontSize = 11.sp,
+                    modifier = Modifier.padding(bottom = 6.dp)
+                )
+                YouTubeSearchWebView(
+                    query = query,
+                    modifier = Modifier.fillMaxWidth().weight(1f)
+                )
+            }
+        }
+    }
 }
 
 // --- Daily Duas Screen ---
